@@ -6,7 +6,7 @@
 | **Version** | 1.0 |
 | **Date** | 2026-04-10 |
 | **Status** | Active Development |
-| **Stack** | ASP.NET Core 10 · SQLite · Claude API · Tailwind CSS · Chart.js |
+| **Stack** | ASP.NET Core 10 · SQLite · Google Gemini API (free tier) · Tailwind CSS · Chart.js |
 
 ---
 
@@ -20,7 +20,7 @@ Weight Loss Tracker is a personal, self-hosted web application that helps a sing
 
 ### Goals
 - Provide a frictionless daily check-in loop: log weight → log meals → review workout
-- Leverage Claude AI to generate personalised, injury-safe workout plans
+- Leverage Gemini AI to generate personalised, injury-safe workout plans
 - Give AI-powered nutrition guidance in conversational plain language
 - Keep all data local (SQLite on-device) with no cloud sync or account required
 - Maintain a complete, queryable history of every prompt sent to the AI
@@ -28,7 +28,7 @@ Weight Loss Tracker is a personal, self-hosted web application that helps a sing
 ### Non-Goals
 - Multi-user support
 - Mobile native app
-- Calorie/macro calculation engine (delegated entirely to Claude)
+- Calorie/macro calculation engine (delegated entirely to Gemini)
 - Social / sharing features
 - Wearable device integrations
 
@@ -63,7 +63,7 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 │  ASP.NET Core 10 Minimal API  (Program.cs)                │
 │                                                           │
 │  Services                                                 │
-│  ├─ ClaudeService    — Anthropic API calls + logging      │
+│  ├─ GeminiService    — Google Gemini API calls + logging  │
 │  ├─ ExerciseService  — workout generation & history       │
 │  └─ MealService      — meal CRUD + nutrition advice       │
 │                                                           │
@@ -76,7 +76,7 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 └──────────────────────────────────────────────────────────┘
                      │
 ┌────────────────────▼─────────────────────────────────────┐
-│  Anthropic API  (claude-sonnet-4-6)                       │
+│  Google Gemini API  (gemini-2.5-flash · free tier)        │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -137,7 +137,7 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 | DayOfWeek | int? | 0–6 |
 | Location | string | Home / Gym |
 | Category | string | Cardio / Strength / Flexibility |
-| Content | string | Full Claude response |
+| Content | string | Full Gemini response |
 | AiPromptLogId | int FK → AiPromptLog | 1:1 (unique index enforced). Restrict delete — `AiPromptLog` rows may not be deleted directly while a linked `ExerciseSuggestion` exists; use `DELETE /api/exercise/history/{id}` to remove both in a transaction |
 
 ### `AiPromptLog`
@@ -147,10 +147,10 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 | CreatedAt | DateTime | UTC |
 | PromptType | string | Exercise / Meal / General |
 | Prompt | string | Full prompt sent |
-| Response | string | Full Claude response |
-| Model | string | e.g. claude-sonnet-4-6 |
-| InputTokens | int | From API usage |
-| OutputTokens | int | From API usage |
+| Response | string | Full Gemini response |
+| Model | string | e.g. gemini-2.5-flash |
+| InputTokens | int | From `usageMetadata.promptTokenCount` |
+| OutputTokens | int | From `usageMetadata.candidatesTokenCount` |
 
 ---
 
@@ -197,19 +197,19 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 ### 7.3 Exercise Schedule
 - Seven-day grid (Monday–Sunday display order) with per-day location picker (Rest / Home / Gym)
 - "Save Schedule" persists current selections to DB
-- "Generate [Day]" button: calls Claude for a single-day workout; auto-saves schedule first
+- "Generate [Day]" button: calls Gemini for a single-day workout; auto-saves schedule first
 - "Generate Full Week" button: generates all non-Rest days sequentially; the button is disabled and a progress indicator (e.g. "Generating day 2 of 5…") is shown while each day is being generated; each successful day is saved to the DB and rendered immediately so partial results are never lost; on API error the remaining days are skipped and the error is surfaced inline beneath the last successful result
-- Workout suggestion panel renders Claude's markdown response
+- Workout suggestion panel renders Gemini's markdown response
 - Per-day history sidebar lists previous suggestions; click to preview any past workout
 - Category badge (Cardio / Strength / Flexibility) rotates automatically to balance the week
-- All exercise prompts embed the user's injury profile; Claude is instructed to avoid neck/lower-back loading
+- All exercise prompts embed the user's injury profile; Gemini is instructed to avoid neck/lower-back loading
 
 ### 7.4 Meal Log
 - Dual-column layout: meal entry form + AI advice panel
 - Add meals with type, description, optional calorie count, and notes
 - Running daily calorie total displayed in the table header
 - Delete individual meals
-- Free-text question box → "Ask Claude" → inline nutrition advice rendered in the advice panel
+- Free-text question box → "Ask Gemini" → inline nutrition advice rendered in the advice panel
 
 ### 7.5 AI History
 - Master-detail layout: filter tabs (All / Exercise / Meal / General) + scrollable list + detail pane
@@ -221,7 +221,19 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 ## 8. AI Integration
 
 ### Model
-`claude-sonnet-4-6` via the Anthropic Messages API (`https://api.anthropic.com/v1/messages`).
+`gemini-2.5-flash` via the Google Gemini REST API (free tier).
+
+**Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
+**Auth:** API key passed via `x-goog-api-key` header.
+
+### Free Tier Rate Limits
+| Limit | Value |
+|---|---|
+| Requests per minute (RPM) | 10 |
+| Tokens per minute (TPM) | 250 000 |
+| Requests per day (RPD) | 250 |
+
+The "Generate Full Week" feature may consume 5 RPD in a single click. At typical usage (1–2 workouts + a few meal questions per day) the daily cap is unlikely to be hit. `GeminiService` surfaces `429 Too Many Requests` errors from the API as `502 Bad Gateway` to the frontend with the message "Rate limit reached — try again in a moment."
 
 ### Prompt Strategy
 
@@ -235,15 +247,15 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 Workout category (Cardio → Strength → Flexibility → repeat) is determined by the day's index within the active days of the week, ensuring natural variety without user configuration.
 
 ### Token Limits
-`max_tokens` defaults to **1 024** for all requests (configurable via `appsettings.json`). This is sufficient for a single-day workout or nutrition response while capping per-call cost. If responses are consistently truncated, increase via the `Claude:MaxTokens` setting — no code change required.
+`maxOutputTokens` defaults to **1 024** for all requests (configurable via `appsettings.json`). This is sufficient for a single-day workout or nutrition response. On the free tier there is no per-token cost, but capping output keeps responses focused. If responses are consistently truncated, increase via the `Gemini:MaxOutputTokens` setting — no code change required.
 
 ### Error Handling
 
-**Startup:** If `Claude:ApiKey` is missing or empty, the app logs a warning and starts in **degraded mode** — all AI-powered endpoints return `503 Service Unavailable` with the message "Claude API key not configured." Non-AI features (weight logging, meal CRUD, schedule editing) remain fully functional.
+**Startup:** If `Gemini:ApiKey` is missing or empty, the app logs a warning and starts in **degraded mode** — all AI-powered endpoints return `503 Service Unavailable` with the message "Gemini API key not configured." Non-AI features (weight logging, meal CRUD, schedule editing) remain fully functional.
 
-**Runtime API errors:** `ClaudeService` catches Anthropic API errors (HTTP 4xx/5xx, network timeouts) and throws a typed `ClaudeApiException`. AI endpoints return `502 Bad Gateway` with a plain-text error message. The frontend surfaces errors inline (not as an alert) and re-enables any disabled buttons.
+**Runtime API errors:** `GeminiService` catches Google API errors (HTTP 4xx/5xx, network timeouts) and throws a typed `GeminiApiException`. AI endpoints return `502 Bad Gateway` with a plain-text error message. The frontend surfaces errors inline (not as an alert) and re-enables any disabled buttons.
 
-**Input validation:** All AI-triggering endpoints validate inputs before calling the API. For example, `POST /api/exercise/generate-day` returns `400 Bad Request` if `dayOfWeek` is outside 0–6 or the day is set to Rest. Invalid inputs never reach the Anthropic API.
+**Input validation:** All AI-triggering endpoints validate inputs before calling the API. For example, `POST /api/exercise/generate-day` returns `400 Bad Request` if `dayOfWeek` is outside 0–6 or the day is set to Rest. Invalid inputs never reach the Gemini API.
 
 ### Logging
 Every API call is recorded in `AiPromptLog` with the full prompt, response, model, and token counts before the response is returned to the client.
@@ -297,7 +309,7 @@ A shared `showError(containerId, message)` utility renders an inline error banne
 Clicking the edit icon on a weight-history row replaces the weight and notes cells with input fields pre-filled with current values. "Save" calls `Bridge.call('updateWeight', ...)` and re-renders the row; "Cancel" restores the original display. Only one row may be in edit mode at a time.
 
 ### Markdown Renderer
-A lightweight `md(text)` function converts Claude's `##`, `###`, `- `, `**bold**` output to HTML without a library dependency.
+A lightweight `md(text)` function converts Gemini's `##`, `###`, `- `, `**bold**` output to HTML without a library dependency.
 
 ---
 
@@ -307,15 +319,15 @@ A lightweight `md(text)` function converts Claude's `##`, `###`, `- `, `**bold**
 
 ```json
 {
-  "Claude": {
-    "ApiKey": "<your-anthropic-api-key>",
-    "Model": "claude-sonnet-4-6",
-    "MaxTokens": 1024
+  "Gemini": {
+    "ApiKey": "<your-google-ai-api-key>",
+    "Model": "gemini-2.5-flash",
+    "MaxOutputTokens": 1024
   }
 }
 ```
 
-`Model` and `MaxTokens` are read by `ClaudeService` at startup, making them configurable without a code change.
+`Model` and `MaxOutputTokens` are read by `GeminiService` at startup, making them configurable without a code change. Get a free API key at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
 Database path: `%LOCALAPPDATA%\WeightLossTracker\tracker.db` — created automatically on first run.
 
@@ -326,9 +338,9 @@ Database path: `%LOCALAPPDATA%\WeightLossTracker\tracker.db` — created automat
 ### First-time setup
 
 ```bash
-# 1. Copy the example config and add your Anthropic API key
+# 1. Copy the example config and add your Google AI API key
 cp appsettings.example.json appsettings.json
-# Edit appsettings.json → set Claude:ApiKey
+# Edit appsettings.json → set Gemini:ApiKey (free key from https://aistudio.google.com/apikey)
 
 # 2. Restore & run
 dotnet run --project WeightLossTracker
