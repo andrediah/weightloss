@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weight Loss Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Smooth transitions for view swaps */
+    #view-root { animation: fadeIn 0.15s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    /* Prose markdown */
+    .prose ul { list-style: disc; padding-left: 1.25rem; }
+    .prose h2 { color: #4f46e5; font-weight: 700; font-size: 1.1rem; margin-top: 1rem; }
+    .prose h3 { font-weight: 600; margin-top: 0.75rem; }
+    .prose li { margin-bottom: 0.25rem; }
+    .prose p { margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body class="h-full bg-gray-100 flex">
+
+  <!-- Sidebar -->
+  <nav class="w-56 bg-indigo-800 flex flex-col py-6 px-3 flex-shrink-0 min-h-screen">
+    <div class="text-white font-bold text-lg px-3 mb-8 flex items-center gap-2">
+      <span class="text-2xl">⚖️</span>
+      <span class="leading-tight">Weight Loss<br><span class="text-indigo-300 font-normal text-sm">Tracker</span></span>
+    </div>
+    <div class="space-y-1 flex-1">
+      <button data-nav="dashboard" onclick="navigate('dashboard')"
+        class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-3 text-indigo-100 hover:bg-indigo-700">
+        <span>🏠</span> Dashboard
+      </button>
+      <button data-nav="weight" onclick="navigate('weight')"
+        class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-3 text-indigo-100 hover:bg-indigo-700">
+        <span>📊</span> Weight Log
+      </button>
+      <button data-nav="exercise" onclick="navigate('exercise')"
+        class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-3 text-indigo-100 hover:bg-indigo-700">
+        <span>💪</span> Exercise
+      </button>
+      <button data-nav="meals" onclick="navigate('meals')"
+        class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-3 text-indigo-100 hover:bg-indigo-700">
+        <span>🥗</span> Meals
+      </button>
+      <button data-nav="history" onclick="navigate('history')"
+        class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-3 text-indigo-100 hover:bg-indigo-700">
+        <span>🤖</span> AI History
+      </button>
+    </div>
+    <div class="text-indigo-400 text-xs px-3 mt-4">
+      Goal: 215 → 190 lbs<br>
+      <span class="text-indigo-500">25 lbs to lose</span>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="flex-1 overflow-y-auto p-6 md:p-8">
+    <div id="view-root" class="max-w-6xl mx-auto">
+      <!-- Views are rendered here by the router -->
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

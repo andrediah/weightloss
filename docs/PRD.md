@@ -164,7 +164,7 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 | PUT | `/api/weight/{id}` | Edit an existing weight entry (weight + notes); same 50–500 lbs validation as POST; returns `404` if not found |
 | DELETE | `/api/weight/{id}` | Remove a weight entry |
 | GET | `/api/schedule` | Weekly workout schedule |
-| PUT | `/api/schedule` | Update schedule locations |
+| PUT | `/api/schedule` | Update schedule locations. Body: JSON array of `{ dayOfWeek, location }` objects — the frontend must strip extra fields (e.g. `id`) before sending. |
 | POST | `/api/exercise/generate-day` | AI workout for one day |
 | POST | `/api/exercise/generate-week` | AI workouts for all active days |
 | GET | `/api/exercise/history` | Past suggestions; optional `?dayOfWeek=0-6` query param |
@@ -197,10 +197,12 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 ### 7.3 Exercise Schedule
 - Seven-day grid (Monday–Sunday display order) with per-day location picker (Rest / Home / Gym)
 - "Save Schedule" persists current selections to DB
-- "Generate [Day]" button: calls Gemini for a single-day workout; auto-saves schedule first
+- "Generate [Day]" button: calls Gemini for a single-day workout; auto-saves schedule first; replaces the existing card for that day if one is already displayed
 - "Generate Full Week" button: generates all non-Rest days sequentially; the button is disabled and a progress indicator (e.g. "Generating day 2 of 5…") is shown while each day is being generated; each successful day is saved to the DB and rendered immediately so partial results are never lost; on API error the remaining days are skipped and the error is surfaced inline beneath the last successful result
+- Workout generation output must include a list of recommended exercises with specific sets, reps (or duration for timed exercises), and rest periods — e.g. "3 × 12 bodyweight squats, 60 s rest". The AI prompt instructs Gemini to return a structured workout plan rather than general advice.
+- **On screen load**, the most recent saved workout per active day is fetched from history and displayed automatically (Mon–Sun order), so workouts are never lost when navigating away and returning
+- Each workout card has a delete (×) button to remove that suggestion from the DB and the screen
 - Workout suggestion panel renders Gemini's markdown response
-- Per-day history sidebar lists previous suggestions; click to preview any past workout
 - Category badge (Cardio / Strength / Flexibility) rotates automatically to balance the week
 - All exercise prompts embed the user's injury profile; Gemini is instructed to avoid neck/lower-back loading
 
@@ -239,7 +241,7 @@ The "Generate Full Week" feature may consume 5 RPD in a single click. At typical
 
 | Feature | Prompt Type | Key Context Injected |
 |---|---|---|
-| Single-day workout | Exercise | Fitness level, injuries, full weekly schedule, day location, suggested category |
+| Single-day workout | Exercise | Fitness level, injuries, full weekly schedule, day location, suggested category. Prompt instructs Gemini to return a structured list of exercises with sets, reps (or duration), and rest periods. |
 | Full-week workout | Exercise | Same as above, iterated per active day |
 | Nutrition advice | Meal | User goal (215→190 lbs), fitness level, injuries, free-text question |
 
@@ -247,7 +249,7 @@ The "Generate Full Week" feature may consume 5 RPD in a single click. At typical
 Workout category (Cardio → Strength → Flexibility → repeat) is determined by the day's index within the active days of the week, ensuring natural variety without user configuration.
 
 ### Token Limits
-`maxOutputTokens` defaults to **1 024** for all requests (configurable via `appsettings.json`). This is sufficient for a single-day workout or nutrition response. On the free tier there is no per-token cost, but capping output keeps responses focused. If responses are consistently truncated, increase via the `Gemini:MaxOutputTokens` setting — no code change required.
+`maxOutputTokens` defaults to **2 048** for general requests and **4 096** for exercise generation (configurable via `Gemini:MaxOutputTokens` and `Gemini:ExerciseMaxOutputTokens` in `appsettings.json`). Exercise prompts use a higher limit because the structured workout format (warm-up, main workout, cool-down with per-exercise sets/reps/rest) requires more output than nutrition advice or general queries. On the free tier there is no per-token cost, but capping output keeps responses focused. If responses are consistently truncated, increase the relevant setting — no code change required.
 
 ### Error Handling
 
@@ -322,12 +324,13 @@ A lightweight `md(text)` function converts Gemini's `##`, `###`, `- `, `**bold**
   "Gemini": {
     "ApiKey": "<your-google-ai-api-key>",
     "Model": "gemini-2.5-flash",
-    "MaxOutputTokens": 1024
+    "MaxOutputTokens": 2048,
+    "ExerciseMaxOutputTokens": 4096
   }
 }
 ```
 
-`Model` and `MaxOutputTokens` are read by `GeminiService` at startup, making them configurable without a code change. Get a free API key at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+`Model`, `MaxOutputTokens`, and `ExerciseMaxOutputTokens` are read by `GeminiService` at startup, making them configurable without a code change. Exercise generation uses its own higher token limit to accommodate the structured workout format. Get a free API key at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
 Database path: `%LOCALAPPDATA%\WeightLossTracker\tracker.db` — created automatically on first run.
 
@@ -346,7 +349,11 @@ cp appsettings.example.json appsettings.json
 dotnet run --project WeightLossTracker
 ```
 
-The app auto-applies EF Core migrations on startup. If a migration adds a unique index (e.g. on `WeightEntry.Date`), existing duplicate rows will cause the migration to fail — resolve duplicates manually before upgrading.
+The app auto-applies EF Core migrations on startup.
+
+**Interrupted first run (partial database state):** EF Core creates `__EFMigrationsHistory` outside the migration transaction, so if the process is killed mid-migration on the very first run, that table can exist while the schema is only partially built. On the next startup `Migrate()` would fail with "table already exists". The startup code handles this by opening a raw `SqliteConnection` (completely outside EF Core's connection pool) to inspect `sqlite_master` directly. If the database file exists but `__EFMigrationsHistory` contains no rows (meaning no migration was ever fully committed and no user data exists), it issues `DROP TABLE IF EXISTS` for every known table in FK-dependency order through that same raw connection. The raw connection is then explicitly disposed and `SqliteConnection.ClearAllPools()` is called to fully close it before `Migrate()` opens its own fresh connection to the now-clean database. Using a raw connection instead of EF Core's `ExecuteSqlRaw` is necessary because EF Core's connection pool kept live handles to the partial-state file across previous cleanup attempts, causing `Migrate()` to still see the old tables. No manual intervention is needed.
+
+**Subsequent migration failures:** If a future migration fails after user data already exists (e.g. a unique index migration conflicts with duplicate rows), the startup code does not interfere — `Migrate()` throws and the app will not start. Resolve the data conflict in the database manually, then restart.
 
 ### Subsequent runs
 
