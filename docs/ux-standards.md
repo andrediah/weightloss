@@ -136,6 +136,23 @@ Dark mode is a **required feature**, not an enhancement. It must be implemented 
 [data-theme="light"] { /* same light token overrides */ }
 ```
 
+### Tailwind CSS dark mode configuration
+
+Tailwind v3 and v4 handle class-based dark mode differently. Always declare both to ensure the manual toggle works regardless of CDN version:
+
+```html
+<!-- v3: CDN must load first, then set config on the global tailwind object -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' };</script>
+
+<!-- v4: @custom-variant in a text/tailwindcss style block (ignored by browsers / v3) -->
+<style type="text/tailwindcss">
+  @custom-variant dark (&:where(.dark, .dark *));
+</style>
+```
+
+The toggle button must add/remove the `.dark` class on `<html>` and persist the choice to `localStorage`. Use `querySelectorAll('[data-theme-toggle]')` (not a single `getElementById`) so multiple toggle surfaces (e.g. sidebar + mobile header) stay in sync.
+
 ---
 
 ## Typography
@@ -216,6 +233,16 @@ Dark mode is a **required feature**, not an enhancement. It must be implemented 
 - Keep navigation labels **short and descriptive** — under 20 characters
 - Highlight **active states** clearly so users always know where they are
 - All navigation must be **fully keyboard accessible** — visible focus indicators required
+
+### Mobile navigation pattern (≤ 767 px)
+
+- Hide the desktop sidebar entirely (`display: none` / `hidden md:flex`)
+- Show a **top header bar** containing the app title/logo and secondary controls (e.g. dark mode toggle)
+- Show a **fixed bottom tab bar** with icon + label for each primary destination (max 5 items)
+- Bottom tab bar must use `position: fixed; bottom: 0` and account for iOS safe areas: `padding-bottom: env(safe-area-inset-bottom)`
+- Main content area must add bottom padding equal to the tab bar height (`pb-24` / 96 px) to prevent content being obscured
+- Active tab must be visually distinct — use a top border indicator (`border-top: 2px solid`) in addition to a colour change; never rely on colour alone
+- Tab items must meet the 44 × 44 px minimum touch target requirement
 
 ---
 

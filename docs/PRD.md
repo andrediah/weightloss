@@ -86,6 +86,8 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 - **Minimal API**: all endpoints live in `Program.cs` for maximum visibility in a single-developer project.
 - **EF Core migrations**: schema is versioned and applied automatically on startup.
 - **API key in `appsettings.json`**: configured once locally; excluded from source control via `.gitignore` (see §10).
+- **Responsive layout**: desktop shows a fixed left sidebar; mobile (< 768 px) hides the sidebar and replaces it with a top header bar and a fixed bottom tab bar (5 primary destinations). Bottom-tab placement follows the thumb-reach principle from `ux-standards.md`.
+- **Tailwind dark mode**: configured for class-based dark mode via both the v3 `tailwind.config` object and a v4-compatible `@custom-variant dark` CSS declaration, ensuring the manual toggle works regardless of which CDN version is served.
 
 ---
 
@@ -375,6 +377,6 @@ Default URL: `http://localhost:5000`
 | Medium | Calorie goal setting | Daily calorie budget with over/under indicator |
 | Medium | Workout completion tracking | Mark individual workouts as done; track adherence % |
 | Low | Export to CSV | Weight and meal data export for external analysis |
-| Low | Dark mode | Toggle between light/dark themes |
+| Low | Dark mode | ~~Implemented~~ — light/dark toggle in sidebar (desktop) and header (mobile) |
 | Low | PWA / offline support | Service worker so the app loads without the server running |
 | Low | Backup & restore | One-click DB backup/restore via the UI |

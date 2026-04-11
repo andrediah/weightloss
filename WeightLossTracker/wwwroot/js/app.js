@@ -1,30 +1,64 @@
-// ─── Utilities ────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DISPLAY_ORDER = [1,2,3,4,5,6,0]; // Mon–Sun display
+const DISPLAY_ORDER = [1,2,3,4,5,6,0]; // Mon–Sun display order
+
+// Reusable Tailwind class sets (light + dark variants) for dynamic HTML
+const C = {
+  card:        'bg-white dark:bg-gray-800 rounded-xl shadow p-5',
+  h1:          'text-2xl font-bold text-gray-800 dark:text-gray-100',
+  h2:          'text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4',
+  h3:          'font-semibold text-gray-800 dark:text-gray-100',
+  label:       'block text-sm text-gray-600 dark:text-gray-300 mb-1',
+  bodyText:    'text-sm text-gray-700 dark:text-gray-200',
+  mutedText:   'text-sm text-gray-500 dark:text-gray-400',
+  tinyText:    'text-xs text-gray-400 dark:text-gray-500',
+  input:       'border dark:border-gray-600 rounded-lg px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-indigo-500',
+  inputSm:     'border dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400',
+  select:      'border dark:border-gray-600 rounded-lg px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400',
+  btnPrimary:  'bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition-colors min-h-[44px]',
+  btnSuccess:  'bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition-colors min-h-[44px]',
+  btnSecondary:'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+  btnSmPrimary:'text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded px-2 py-1 transition-colors',
+  trow:        'border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50',
+  divider:     'border-b dark:border-gray-700',
+  badge:       'text-xs font-semibold px-2 py-0.5 rounded-full',
+};
 
 let activeChart = null;
 
+// ─── Markdown renderer ─────────────────────────────────────────────────────────
 function md(text) {
   if (!text) return '';
   return text
-    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-4 mb-2 text-indigo-700">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1 text-gray-800 dark:text-gray-100">$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2 class="text-lg font-bold mt-4 mb-2 text-indigo-700 dark:text-indigo-400">$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1 class="text-xl font-bold mt-4 mb-2 text-gray-800 dark:text-gray-100">$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/^- (.+)$/gm,    '<li class="ml-4 list-disc text-gray-700 dark:text-gray-200">$1</li>')
     .replace(/(<li[\s\S]*?<\/li>)/g, '<ul class="my-1">$1</ul>')
-    .replace(/\n{2,}/g, '</p><p class="mt-2">')
-    .replace(/^(?!<[hul])(.+)$/gm, '<p class="mt-1">$1</p>');
+    .replace(/\n{2,}/g, '</p><p class="mt-2 text-gray-700 dark:text-gray-200">')
+    .replace(/^(?!<[hul])(.+)$/gm, '<p class="mt-1 text-gray-700 dark:text-gray-200">$1</p>');
 }
 
+// ─── Error display ─────────────────────────────────────────────────────────────
 function showError(containerId, message) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = `
-    <div class="bg-red-50 border border-red-200 text-red-800 rounded p-3 flex items-start gap-2 mt-2">
+    <div role="alert" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-lg p-3 flex items-start gap-2 mt-2">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+           class="flex-shrink-0 mt-0.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
       <span class="flex-1 text-sm">${escHtml(message)}</span>
-      <button onclick="this.parentElement.parentElement.innerHTML=''" class="text-red-500 hover:text-red-700 font-bold text-lg leading-none">&times;</button>
+      <button onclick="this.closest('[role=alert]').remove()"
+              aria-label="Dismiss error"
+              class="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-200 font-bold text-lg leading-none">
+        &times;
+      </button>
     </div>`;
 }
 
@@ -34,30 +68,96 @@ function clearError(containerId) {
 }
 
 function escHtml(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function fmtDate(isoStr) {
   if (!isoStr) return '';
-  return new Date(isoStr).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  return new Date(isoStr).toLocaleDateString(undefined, {
+    month:'short', day:'numeric', year:'numeric'
+  });
 }
 
 function fmtDateTime(isoStr) {
   if (!isoStr) return '';
-  return new Date(isoStr).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  return new Date(isoStr).toLocaleString(undefined, {
+    month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+  });
+}
+
+// ─── Dark mode ────────────────────────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = saved === 'dark' || (!saved && prefersDark);
+  applyTheme(isDark);
+
+  // Keep in sync if OS preference changes and no user override is stored
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (!localStorage.getItem('theme')) applyTheme(e.matches);
+  });
+}
+
+function applyTheme(isDark) {
+  document.documentElement.classList.toggle('dark', isDark);
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  // Update every theme toggle button (desktop sidebar + mobile header)
+  document.querySelectorAll('[data-theme-toggle]').forEach(btn => {
+    const sunIcon  = btn.querySelector('[data-sun]');
+    const moonIcon = btn.querySelector('[data-moon]');
+    const label    = btn.querySelector('[data-theme-label]');
+    if (isDark) {
+      sunIcon?.classList.remove('hidden');
+      moonIcon?.classList.add('hidden');
+      if (label) label.textContent = 'Light mode';
+      btn.setAttribute('aria-label', 'Switch to light mode');
+    } else {
+      sunIcon?.classList.add('hidden');
+      moonIcon?.classList.remove('hidden');
+      if (label) label.textContent = 'Dark mode';
+      btn.setAttribute('aria-label', 'Switch to dark mode');
+    }
+  });
+}
+
+function toggleTheme() {
+  const isDark = !document.documentElement.classList.contains('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  applyTheme(isDark);
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 function navigate(viewName) {
   if (activeChart) { activeChart.destroy(); activeChart = null; }
+
+  // Desktop sidebar active state
   document.querySelectorAll('[data-nav]').forEach(el => {
-    el.classList.toggle('bg-indigo-700', el.dataset.nav === viewName);
-    el.classList.toggle('text-white', el.dataset.nav === viewName);
-    el.classList.toggle('text-indigo-100', el.dataset.nav !== viewName);
+    const active = el.dataset.nav === viewName;
+    el.classList.toggle('bg-indigo-700',            active);
+    el.classList.toggle('dark:bg-indigo-800',       active);
+    el.classList.toggle('text-white',               active);
+    el.classList.toggle('text-indigo-100',         !active);
   });
+  // Mobile bottom tab active state
+  document.querySelectorAll('[data-mobile-nav]').forEach(el => {
+    el.classList.toggle('mobile-tab-active', el.dataset.mobileNav === viewName);
+  });
+
   const root = document.getElementById('view-root');
-  const views = { dashboard: renderDashboard, weight: renderWeight, exercise: renderExercise, meals: renderMeals, history: renderHistory };
-  root.innerHTML = '<div class="flex justify-center py-16"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div></div>';
+  root.innerHTML = `
+    <div class="flex justify-center py-16" role="status" aria-label="Loading">
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+    </div>`;
+
+  const views = {
+    dashboard: renderDashboard,
+    weight:    renderWeight,
+    exercise:  renderExercise,
+    meals:     renderMeals,
+    history:   renderHistory,
+  };
   (views[viewName] || renderDashboard)();
 }
 
@@ -65,46 +165,55 @@ function navigate(viewName) {
 async function renderDashboard() {
   const root = document.getElementById('view-root');
   const r = await Bridge.call('getDashboard');
-  if (!r.ok) { root.innerHTML = `<p class="text-red-600 p-4">Failed to load dashboard: ${escHtml(r.data?.detail || r.data)}</p>`; return; }
+  if (!r.ok) {
+    root.innerHTML = `<p class="text-red-600 dark:text-red-400 p-4">
+      Failed to load dashboard: ${escHtml(r.data?.detail || r.data)}</p>`;
+    return;
+  }
   const d = r.data;
   const cwDisplay = d.currentWeight != null ? d.currentWeight.toFixed(1) + ' lbs' : '—';
 
   root.innerHTML = `
     <div class="space-y-6">
-      <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
+      <h1 class="${C.h1}">Dashboard</h1>
 
-      <!-- KPI Cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        ${kpiCard('Current Weight', cwDisplay, 'text-indigo-600', '⚖️')}
-        ${kpiCard('Lost So Far', d.lostSoFar + ' lbs', 'text-green-600', '📉')}
-        ${kpiCard('To Goal', d.toGoal + ' lbs', 'text-orange-600', '🎯')}
-        ${kpiCard('Days Logged', d.daysLogged, 'text-purple-600', '📅')}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" role="list" aria-label="Key metrics">
+        ${kpiCard('Current Weight', cwDisplay,          'text-indigo-600 dark:text-indigo-400',  'scale')}
+        ${kpiCard('Lost So Far',    d.lostSoFar + ' lbs','text-green-600 dark:text-green-400',  'trending-down')}
+        ${kpiCard('To Goal',        d.toGoal + ' lbs',   'text-orange-600 dark:text-orange-400','target')}
+        ${kpiCard('Days Logged',    d.daysLogged,         'text-purple-600 dark:text-purple-400','calendar')}
       </div>
 
-      <!-- Progress Bar -->
-      <div class="bg-white rounded-xl shadow p-5">
-        <div class="flex justify-between text-sm text-gray-600 mb-2">
+      <div class="${C.card}">
+        <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
           <span>Progress to goal</span>
-          <span class="font-semibold text-indigo-600">${d.progressPct}%</span>
+          <span class="font-semibold text-indigo-600 dark:text-indigo-400">${d.progressPct}%</span>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-          <div class="bg-indigo-500 h-4 rounded-full transition-all duration-700" style="width:${d.progressPct}%"></div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"
+             role="progressbar" aria-valuenow="${d.progressPct}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Weight loss progress">
+          <div class="bg-indigo-500 h-4 rounded-full transition-all duration-700"
+               style="width:${d.progressPct}%"></div>
         </div>
-        <div class="flex justify-between text-xs text-gray-400 mt-1">
-          <span>215 lbs</span><span>${d.goalWeight} lbs goal</span>
+        <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <span>215 lbs (start)</span><span>${d.goalWeight} lbs (goal)</span>
         </div>
       </div>
 
-      <!-- Chart -->
-      <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Weight Trend</h2>
+      <div class="${C.card}">
+        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Weight trend</h2>
         ${d.chart.labels.length === 0
-          ? '<p class="text-gray-400 text-sm text-center py-8">No weight entries yet. Log your first weight to see the chart.</p>'
+          ? `<p class="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
+               No weight entries yet. Log your first weight to see the chart.
+             </p>`
           : '<canvas id="weight-chart" height="100"></canvas>'}
       </div>
     </div>`;
 
   if (d.chart.labels.length > 0) {
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    const tickColor = isDark ? '#9ca3af' : '#6b7280';
     const ctx = document.getElementById('weight-chart').getContext('2d');
     const goalLine = Array(d.chart.labels.length).fill(d.goalWeight);
     activeChart = new Chart(ctx, {
@@ -112,22 +221,62 @@ async function renderDashboard() {
       data: {
         labels: d.chart.labels,
         datasets: [
-          { label: 'Weight (lbs)', data: d.chart.weights, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', tension: 0.3, pointRadius: 4, fill: true },
-          { label: 'Trend', data: d.chart.trendLine, borderColor: '#f97316', borderDash: [6,3], pointRadius: 0, tension: 0 },
-          { label: 'Goal', data: goalLine, borderColor: '#22c55e', borderDash: [4,4], pointRadius: 0, tension: 0 }
+          {
+            label: 'Weight (lbs)',
+            data: d.chart.weights,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,0.1)',
+            tension: 0.3,
+            pointRadius: 4,
+            fill: true
+          },
+          {
+            label: 'Trend',
+            data: d.chart.trendLine,
+            borderColor: '#f97316',
+            borderDash: [6,3],
+            pointRadius: 0,
+            tension: 0
+          },
+          {
+            label: 'Goal',
+            data: goalLine,
+            borderColor: '#22c55e',
+            borderDash: [4,4],
+            pointRadius: 0,
+            tension: 0
+          }
         ]
       },
-      options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { title: { display: true, text: 'lbs' } } } }
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'top', labels: { color: tickColor } } },
+        scales: {
+          x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+          y: { ticks: { color: tickColor }, grid: { color: gridColor },
+               title: { display: true, text: 'lbs', color: tickColor } }
+        }
+      }
     });
   }
 }
 
 function kpiCard(label, value, colorClass, icon) {
+  const icons = {
+    'scale':        '<path d="M12 3a9 9 0 1 0 9 9H3a9 9 0 0 0 9-9z"/><line x1="12" y1="3" x2="12" y2="3.01"/><line x1="3" y1="12" x2="21" y2="12"/>',
+    'trending-down':'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+    'target':       '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    'calendar':     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  };
   return `
-    <div class="bg-white rounded-xl shadow p-5 flex flex-col gap-1">
-      <div class="text-2xl">${icon}</div>
+    <div class="${C.card} flex flex-col gap-1" role="listitem">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round" class="${colorClass}" aria-hidden="true">
+        ${icons[icon] || ''}
+      </svg>
       <div class="text-2xl font-bold ${colorClass}">${value}</div>
-      <div class="text-sm text-gray-500">${label}</div>
+      <div class="${C.mutedText}">${label}</div>
     </div>`;
 }
 
@@ -136,25 +285,30 @@ async function renderWeight() {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="space-y-6">
-      <h1 class="text-2xl font-bold text-gray-800">Weight Log</h1>
-      <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-lg font-semibold mb-4">Log Today's Weight</h2>
+      <h1 class="${C.h1}">Weight log</h1>
+
+      <div class="${C.card}">
+        <h2 class="${C.h2}">Log today's weight</h2>
         <div id="weight-error"></div>
-        <form id="weight-form" class="flex flex-wrap gap-3 items-end">
+        <form id="weight-form" class="flex flex-wrap gap-3 items-end" novalidate>
           <div>
-            <label class="block text-sm text-gray-600 mb-1">Weight (lbs)</label>
+            <label for="wt-weight" class="${C.label}">Weight (lbs)</label>
             <input id="wt-weight" type="number" step="0.1" min="50" max="500" required
-              class="border rounded-lg px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="e.g. 212.5">
+                   aria-describedby="wt-weight-hint"
+                   class="${C.input} w-32" placeholder="e.g. 212.5">
+            <p id="wt-weight-hint" class="text-xs text-gray-400 dark:text-gray-500 mt-1">50–500 lbs</p>
           </div>
           <div class="flex-1 min-w-48">
-            <label class="block text-sm text-gray-600 mb-1">Notes (optional)</label>
-            <input id="wt-notes" type="text" class="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="e.g. After workout">
+            <label for="wt-notes" class="${C.label}">Notes (optional)</label>
+            <input id="wt-notes" type="text"
+                   class="${C.input}" placeholder="e.g. After workout">
           </div>
-          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition">Save</button>
+          <button type="submit" class="${C.btnPrimary} px-5">Save weight</button>
         </form>
       </div>
-      <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-lg font-semibold mb-4">History</h2>
+
+      <div class="${C.card}">
+        <h2 class="${C.h2}">History</h2>
         <div id="weight-table-wrap"></div>
       </div>
     </div>`;
@@ -165,11 +319,18 @@ async function renderWeight() {
     e.preventDefault();
     clearError('weight-error');
     const weight = parseFloat(document.getElementById('wt-weight').value);
-    const notes = document.getElementById('wt-notes').value.trim() || null;
+    const notes  = document.getElementById('wt-notes').value.trim() || null;
+
+    if (isNaN(weight) || weight < 50 || weight > 500) {
+      showError('weight-error', 'Weight must be between 50 and 500 lbs.');
+      document.getElementById('wt-weight').focus();
+      return;
+    }
+
     const r = await Bridge.call('saveWeight', { weight, notes });
     if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
     document.getElementById('wt-weight').value = '';
-    document.getElementById('wt-notes').value = '';
+    document.getElementById('wt-notes').value  = '';
     await loadWeightTable();
   });
 }
@@ -178,16 +339,29 @@ async function loadWeightTable() {
   const wrap = document.getElementById('weight-table-wrap');
   if (!wrap) return;
   const r = await Bridge.call('getWeightEntries');
-  if (!r.ok) { wrap.innerHTML = `<p class="text-red-500 text-sm">Failed to load entries.</p>`; return; }
+  if (!r.ok) {
+    wrap.innerHTML = `<p class="text-red-500 dark:text-red-400 text-sm">Failed to load entries.</p>`;
+    return;
+  }
   const entries = r.data;
-  if (!entries.length) { wrap.innerHTML = '<p class="text-gray-400 text-sm">No entries yet.</p>'; return; }
+  if (!entries.length) {
+    wrap.innerHTML = `<p class="${C.mutedText}">No entries yet. Log your first weight above.</p>`;
+    return;
+  }
 
   wrap.innerHTML = `
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="border-b text-left text-gray-500">
-          <th class="py-2 pr-4">Date</th><th class="py-2 pr-4">Weight</th><th class="py-2 flex-1">Notes</th><th class="py-2">Actions</th>
-        </tr></thead>
+      <table class="w-full text-sm" aria-label="Weight history">
+        <thead>
+          <tr class="${C.divider} text-left">
+            <th class="py-2 pr-4 text-gray-500 dark:text-gray-400 font-medium">Date</th>
+            <th class="py-2 pr-4 text-gray-500 dark:text-gray-400 font-medium">Weight</th>
+            <th class="py-2 flex-1 text-gray-500 dark:text-gray-400 font-medium">Notes</th>
+            <th class="py-2 text-gray-500 dark:text-gray-400 font-medium">
+              <span class="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
         <tbody id="weight-tbody">
           ${entries.map(e => weightRow(e)).join('')}
         </tbody>
@@ -196,28 +370,53 @@ async function loadWeightTable() {
 }
 
 function weightRow(e) {
-  return `<tr id="row-${e.id}" class="border-b last:border-0 hover:bg-gray-50">
-    <td class="py-2 pr-4 text-gray-600">${fmtDate(e.date)}</td>
-    <td class="py-2 pr-4 font-medium">${e.weight.toFixed(1)}</td>
-    <td class="py-2 text-gray-500">${escHtml(e.notes || '')}</td>
-    <td class="py-2 flex gap-2">
-      <button onclick="startEditWeight(${e.id},${e.weight},'${escHtml(e.notes||'')}')" class="text-indigo-500 hover:text-indigo-700 text-xs">Edit</button>
-      <button onclick="deleteWeight(${e.id})" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
-    </td>
-  </tr>`;
+  return `
+    <tr id="row-${e.id}" class="${C.trow}">
+      <td class="py-2 pr-4 text-gray-600 dark:text-gray-300">${fmtDate(e.date)}</td>
+      <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">${e.weight.toFixed(1)}</td>
+      <td class="py-2 text-gray-500 dark:text-gray-400">${escHtml(e.notes || '')}</td>
+      <td class="py-2">
+        <div class="flex gap-3">
+          <button onclick="startEditWeight(${e.id}, ${e.weight}, '${escHtml(e.notes||'')}')"
+                  aria-label="Edit weight entry for ${fmtDate(e.date)}"
+                  class="text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 text-xs font-medium">
+            Edit
+          </button>
+          <button onclick="deleteWeight(${e.id})"
+                  aria-label="Delete weight entry for ${fmtDate(e.date)}"
+                  class="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 text-xs font-medium">
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>`;
 }
 
 let editingWeightId = null;
+
 function startEditWeight(id, weight, notes) {
   if (editingWeightId) cancelEditWeight(editingWeightId);
   editingWeightId = id;
   const row = document.getElementById(`row-${id}`);
   const cells = row.querySelectorAll('td');
-  cells[1].innerHTML = `<input id="edit-w-${id}" type="number" step="0.1" min="50" max="500" value="${weight}" class="border rounded px-2 py-1 w-24 text-sm focus:ring-1 focus:ring-indigo-400">`;
-  cells[2].innerHTML = `<input id="edit-n-${id}" type="text" value="${escHtml(notes)}" class="border rounded px-2 py-1 w-full text-sm focus:ring-1 focus:ring-indigo-400">`;
+  cells[1].innerHTML = `
+    <input id="edit-w-${id}" type="number" step="0.1" min="50" max="500" value="${weight}"
+           aria-label="Edit weight" class="${C.inputSm} w-24">`;
+  cells[2].innerHTML = `
+    <input id="edit-n-${id}" type="text" value="${escHtml(notes)}"
+           aria-label="Edit notes" class="${C.inputSm} w-full">`;
   cells[3].innerHTML = `
-    <button onclick="saveEditWeight(${id})" class="text-green-600 hover:text-green-800 text-xs mr-1">Save</button>
-    <button onclick="cancelEditWeight(${id})" class="text-gray-400 hover:text-gray-600 text-xs">Cancel</button>`;
+    <div class="flex gap-2">
+      <button onclick="saveEditWeight(${id})"
+              class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 text-xs font-medium">
+        Save
+      </button>
+      <button onclick="cancelEditWeight(${id})"
+              class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xs font-medium">
+        Cancel
+      </button>
+    </div>`;
+  document.getElementById(`edit-w-${id}`)?.focus();
 }
 
 function cancelEditWeight(id) {
@@ -226,8 +425,8 @@ function cancelEditWeight(id) {
 }
 
 async function saveEditWeight(id) {
-  const weight = parseFloat(document.getElementById(`edit-w-${id}`).value);
-  const notes = document.getElementById(`edit-n-${id}`).value.trim() || null;
+  const weight = parseFloat(document.getElementById(`edit-w-${id}`)?.value ?? '');
+  const notes  = document.getElementById(`edit-n-${id}`)?.value.trim() || null;
   if (isNaN(weight)) return;
   const r = await Bridge.call('updateWeight', { id, weight, notes });
   if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
@@ -236,38 +435,38 @@ async function saveEditWeight(id) {
 }
 
 async function deleteWeight(id) {
-  if (!confirm('Delete this weight entry?')) return;
+  if (!confirm('Delete this weight entry? This cannot be undone.')) return;
   const r = await Bridge.call('deleteWeight', { id });
   if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
   await loadWeightTable();
 }
 
-// ─── EXERCISE ─────────────────────────────────────────────────────────────────
+// ─── EXERCISE SCHEDULE ────────────────────────────────────────────────────────
 let scheduleData = [];
-let exerciseHistory = {};
-let selectedHistoryId = null;
 
 async function renderExercise() {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="space-y-6">
-      <h1 class="text-2xl font-bold text-gray-800">Exercise Schedule</h1>
+      <h1 class="${C.h1}">Exercise schedule</h1>
       <div id="exercise-error"></div>
 
-      <!-- Schedule Grid -->
-      <div class="bg-white rounded-xl shadow p-5">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold">Weekly Schedule</h2>
-          <div class="flex gap-2">
-            <button onclick="saveSchedule()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">Save Schedule</button>
-            <button id="btn-gen-week" onclick="generateWeek()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Generate Full Week</button>
+      <div class="${C.card}">
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-3">
+          <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Weekly schedule</h2>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="saveSchedule()" class="${C.btnSecondary}">Save schedule</button>
+            <button id="btn-gen-week" onclick="generateWeek()"
+                    class="${C.btnPrimary} px-4 text-sm">
+              Generate full week
+            </button>
           </div>
         </div>
         <div id="schedule-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"></div>
-        <div id="week-progress" class="hidden mt-3 text-sm text-indigo-600 font-medium"></div>
+        <div id="week-progress" class="hidden mt-3 text-sm text-indigo-600 dark:text-indigo-400 font-medium"
+             role="status" aria-live="polite"></div>
       </div>
 
-      <!-- Workout Results -->
       <div id="workout-results" class="space-y-4"></div>
     </div>`;
 
@@ -286,31 +485,49 @@ async function loadExerciseHistory() {
   const r = await Bridge.call('getExerciseHistory');
   if (!r.ok) return;
   const history = Array.isArray(r.data) ? r.data : [];
-  // Show the most recent suggestion per day, in Mon–Sun display order
+
+  // Most recent per day
   const latestPerDay = new Map();
   for (const s of history) {
     if (!latestPerDay.has(s.dayOfWeek)) latestPerDay.set(s.dayOfWeek, s);
   }
+
   const resultsDiv = document.getElementById('workout-results');
   if (!resultsDiv) return;
   resultsDiv.innerHTML = '';
   for (const dow of DISPLAY_ORDER) {
-    if (latestPerDay.has(dow)) renderWorkoutResult(latestPerDay.get(dow), false);
+    if (latestPerDay.has(dow)) renderWorkoutCard(latestPerDay.get(dow), false);
   }
 }
 
 function renderScheduleGrid() {
   const grid = document.getElementById('schedule-grid');
   if (!grid) return;
+
   grid.innerHTML = DISPLAY_ORDER.map(dow => {
     const day = scheduleData.find(s => s.dayOfWeek === dow) || { dayOfWeek: dow, location: 'Rest' };
+    const isRest = day.location === 'Rest';
     return `
-      <div class="border rounded-lg p-3 flex flex-col gap-2 ${day.location === 'Rest' ? 'bg-gray-50' : 'bg-indigo-50 border-indigo-200'}">
-        <div class="font-semibold text-sm text-center text-gray-700">${DAY_NAMES[dow]}</div>
-        <select onchange="updateScheduleLocal(${dow},this.value)" class="text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400">
-          ${['Rest','Home','Gym'].map(loc => `<option value="${loc}" ${day.location===loc?'selected':''}>${loc}</option>`).join('')}
+      <div class="border dark:border-gray-700 rounded-lg p-3 flex flex-col gap-2
+                  ${isRest
+                    ? 'bg-gray-50 dark:bg-gray-900'
+                    : 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800'}">
+        <div class="font-semibold text-sm text-center text-gray-700 dark:text-gray-200">
+          ${DAY_NAMES[dow]}
+        </div>
+        <select aria-label="${DAY_NAMES[dow]} location"
+                onchange="updateScheduleLocal(${dow}, this.value)"
+                class="text-sm border dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+          ${['Rest','Home','Gym'].map(loc =>
+            `<option value="${loc}" ${day.location === loc ? 'selected' : ''}>${loc}</option>`
+          ).join('')}
         </select>
-        ${day.location !== 'Rest' ? `<button onclick="generateDay(${dow})" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded px-2 py-1 transition">Generate ${DAY_NAMES[dow]}</button>` : ''}
+        ${!isRest ? `
+          <button onclick="generateDay(${dow})"
+                  id="btn-day-${dow}"
+                  class="${C.btnSmPrimary} w-full min-h-[36px]">
+            Generate ${DAY_NAMES[dow]}
+          </button>` : ''}
       </div>`;
   }).join('');
 }
@@ -331,83 +548,115 @@ async function saveSchedule() {
 
 async function generateDay(dow) {
   clearError('exercise-error');
-  // Save schedule first
+
+  // Persist schedule first
   const items = scheduleData.map(s => ({ dayOfWeek: s.dayOfWeek, location: s.location }));
   await Bridge.call('saveSchedule', items);
-  const btn = document.querySelector(`button[onclick="generateDay(${dow})"]`);
+
+  const btn = document.getElementById(`btn-day-${dow}`);
   if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
 
   const r = await Bridge.call('generateDayWorkout', { dayOfWeek: dow });
 
   if (btn) { btn.disabled = false; btn.textContent = `Generate ${DAY_NAMES[dow]}`; }
-  if (!r.ok) { showError('exercise-error', r.data?.detail || r.data || 'Generation failed.'); return; }
 
-  // Remove any existing card for this day before rendering the new one
+  if (!r.ok) {
+    showError('exercise-error', r.data?.detail || r.data || 'Generation failed.');
+    return;
+  }
+
+  // Remove existing card for this day before rendering the new one
   const resultsDiv = document.getElementById('workout-results');
   if (resultsDiv) {
-    resultsDiv.querySelectorAll('[data-suggestion-id]').forEach(card => {
-      if (card.querySelector('h3')?.textContent.startsWith(DAY_NAMES[dow])) card.remove();
-    });
+    resultsDiv.querySelectorAll(`[data-dow="${dow}"]`).forEach(card => card.remove());
   }
-  renderWorkoutResult(r.data, true);
+
+  renderWorkoutCard(r.data, true);
 }
 
 async function generateWeek() {
   clearError('exercise-error');
+
+  // Persist schedule first
   const items = scheduleData.map(s => ({ dayOfWeek: s.dayOfWeek, location: s.location }));
   await Bridge.call('saveSchedule', items);
-
-  const btn = document.getElementById('btn-gen-week');
-  const progress = document.getElementById('week-progress');
-  btn.disabled = true;
-  progress.classList.remove('hidden');
 
   const activeDays = DISPLAY_ORDER.filter(dow => {
     const d = scheduleData.find(s => s.dayOfWeek === dow);
     return d && d.location !== 'Rest';
   });
 
+  if (activeDays.length === 0) {
+    showError('exercise-error', 'No active days to generate. Set at least one day to Home or Gym first.');
+    return;
+  }
+
+  const btn      = document.getElementById('btn-gen-week');
+  const progress = document.getElementById('week-progress');
+  btn.disabled   = true;
+  progress.classList.remove('hidden');
+
+  // Clear existing results
   const resultsDiv = document.getElementById('workout-results');
-  resultsDiv.innerHTML = '';
+  if (resultsDiv) resultsDiv.innerHTML = '';
 
-  const r = await Bridge.call('generateWeekWorkouts', {});
-  btn.disabled = false;
-  progress.classList.add('hidden');
+  let hadError = false;
+  for (let i = 0; i < activeDays.length; i++) {
+    const dow = activeDays[i];
+    progress.textContent =
+      `Generating ${DAY_NAMES[dow]} — day ${i + 1} of ${activeDays.length}…`;
 
-  if (!r.ok) { showError('exercise-error', r.data?.detail || r.data || 'Generation failed.'); return; }
+    const r = await Bridge.call('generateDayWorkout', { dayOfWeek: dow });
 
-  const results = Array.isArray(r.data) ? r.data : [];
-  results.forEach((item, idx) => {
-    if (item.error) {
-      showError('exercise-error', `Day ${idx + 1}: ${item.error}`);
-    } else if (item.suggestion) {
-      renderWorkoutResult(item.suggestion, false);
+    if (!r.ok) {
+      showError('exercise-error',
+        `Failed on ${DAY_NAMES[dow]}: ${r.data?.detail || r.data || 'Generation failed.'}`);
+      hadError = true;
+      break;
     }
-  });
+
+    renderWorkoutCard(r.data, false);
+  }
+
+  btn.disabled = false;
+  progress.textContent = hadError ? '' : `All ${activeDays.length} workout${activeDays.length !== 1 ? 's' : ''} generated.`;
+  if (!hadError) setTimeout(() => progress.classList.add('hidden'), 3000);
 }
 
-function renderWorkoutResult(suggestion, prepend = false) {
+function renderWorkoutCard(suggestion, prepend = false) {
   const resultsDiv = document.getElementById('workout-results');
   if (!resultsDiv) return;
+
   const dayName = suggestion.dayOfWeek != null ? DAY_NAMES[suggestion.dayOfWeek] : '';
-  const categoryColors = { Cardio: 'bg-blue-100 text-blue-700', Strength: 'bg-purple-100 text-purple-700', Flexibility: 'bg-green-100 text-green-700' };
-  const badgeClass = categoryColors[suggestion.category] || 'bg-gray-100 text-gray-700';
+  const categoryColors = {
+    Cardio:      'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+    Strength:    'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
+    Flexibility: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
+  };
+  const badgeClass = categoryColors[suggestion.category] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
 
   const div = document.createElement('div');
-  div.className = 'bg-white rounded-xl shadow p-5';
+  div.className = `${C.card}`;
   div.dataset.suggestionId = suggestion.id;
+  div.dataset.dow = suggestion.dayOfWeek;
   div.innerHTML = `
     <div class="flex justify-between items-start mb-3">
       <div>
-        <h3 class="font-bold text-gray-800 text-lg">${escHtml(dayName)} — ${escHtml(suggestion.location)}</h3>
-        <p class="text-xs text-gray-400">${fmtDateTime(suggestion.createdAt)}</p>
+        <h3 class="${C.h3} text-lg">${escHtml(dayName)} — ${escHtml(suggestion.location)}</h3>
+        <p class="${C.tinyText}">${fmtDateTime(suggestion.createdAt)}</p>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold px-2 py-1 rounded-full ${badgeClass}">${escHtml(suggestion.category)}</span>
-        <button onclick="deleteWorkoutResult(${suggestion.id}, this)" class="text-gray-300 hover:text-red-500 transition text-lg leading-none" title="Delete">&times;</button>
+        <span class="${C.badge} ${badgeClass}">${escHtml(suggestion.category)}</span>
+        <button onclick="deleteWorkoutCard(${suggestion.id}, this)"
+                aria-label="Delete ${escHtml(dayName)} workout"
+                class="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors text-xl leading-none min-w-[44px] min-h-[44px] flex items-center justify-center">
+          &times;
+        </button>
       </div>
     </div>
-    <div class="prose prose-sm max-w-none text-gray-700">${md(suggestion.content)}</div>`;
+    <div class="prose prose-sm max-w-none text-gray-700 dark:text-gray-200">
+      ${md(suggestion.content)}
+    </div>`;
 
   if (prepend && resultsDiv.firstChild) {
     resultsDiv.insertBefore(div, resultsDiv.firstChild);
@@ -416,12 +665,15 @@ function renderWorkoutResult(suggestion, prepend = false) {
   }
 }
 
-async function deleteWorkoutResult(id, btn) {
+async function deleteWorkoutCard(id, btn) {
   btn.disabled = true;
   const r = await Bridge.call('deleteExerciseHistory', { id });
-  if (!r.ok) { btn.disabled = false; showError('exercise-error', 'Failed to delete workout.'); return; }
-  const card = document.querySelector(`[data-suggestion-id="${id}"]`);
-  if (card) card.remove();
+  if (!r.ok) {
+    btn.disabled = false;
+    showError('exercise-error', 'Failed to delete workout.');
+    return;
+  }
+  document.querySelector(`[data-suggestion-id="${id}"]`)?.remove();
 }
 
 // ─── MEALS ────────────────────────────────────────────────────────────────────
@@ -429,53 +681,68 @@ async function renderMeals() {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="space-y-6">
-      <h1 class="text-2xl font-bold text-gray-800">Meal Log</h1>
+      <h1 class="${C.h1}">Meal log</h1>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        <!-- Left: entry form + table -->
+        <!-- Left: entry form + today's meals -->
         <div class="space-y-4">
-          <div class="bg-white rounded-xl shadow p-5">
-            <h2 class="text-lg font-semibold mb-4">Add Meal</h2>
+          <div class="${C.card}">
+            <h2 class="${C.h2}">Add meal</h2>
             <div id="meal-error"></div>
-            <form id="meal-form" class="space-y-3">
+            <form id="meal-form" class="space-y-3" novalidate>
               <div class="flex gap-3">
                 <div class="flex-1">
-                  <label class="block text-sm text-gray-600 mb-1">Type</label>
-                  <select id="meal-type" class="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
+                  <label for="meal-type" class="${C.label}">Type</label>
+                  <select id="meal-type" class="${C.select}">
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Snack</option>
                   </select>
                 </div>
                 <div class="w-28">
-                  <label class="block text-sm text-gray-600 mb-1">Calories</label>
-                  <input id="meal-cal" type="number" min="0" class="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="opt.">
+                  <label for="meal-cal" class="${C.label}">Calories</label>
+                  <input id="meal-cal" type="number" min="0"
+                         class="${C.input}" placeholder="optional">
                 </div>
               </div>
               <div>
-                <label class="block text-sm text-gray-600 mb-1">Description</label>
-                <input id="meal-desc" type="text" required class="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="e.g. Oatmeal with berries">
+                <label for="meal-desc" class="${C.label}">Description</label>
+                <input id="meal-desc" type="text" required
+                       class="${C.input}" placeholder="e.g. Oatmeal with berries">
               </div>
               <div>
-                <label class="block text-sm text-gray-600 mb-1">Notes</label>
-                <input id="meal-notes" type="text" class="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="optional">
+                <label for="meal-notes" class="${C.label}">Notes</label>
+                <input id="meal-notes" type="text"
+                       class="${C.input}" placeholder="optional">
               </div>
-              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition">Add Meal</button>
+              <button type="submit" class="${C.btnPrimary} w-full">Add meal</button>
             </form>
           </div>
 
-          <div class="bg-white rounded-xl shadow p-5">
+          <div class="${C.card}">
             <div id="meal-table-wrap"></div>
           </div>
         </div>
 
-        <!-- Right: AI advice -->
-        <div class="bg-white rounded-xl shadow p-5 flex flex-col gap-4">
-          <h2 class="text-lg font-semibold">Ask Gemini for Nutrition Advice</h2>
+        <!-- Right: AI nutrition advice -->
+        <div class="${C.card} flex flex-col gap-4">
+          <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            Ask Gemini for nutrition advice
+          </h2>
           <div id="advice-error"></div>
           <div class="flex flex-col gap-2">
-            <textarea id="advice-question" rows="3" class="border rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none" placeholder="e.g. What should I eat after my workout?"></textarea>
-            <button id="btn-ask" onclick="askAdvice()" class="bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition">Ask Gemini</button>
+            <label for="advice-question" class="sr-only">Nutrition question</label>
+            <textarea id="advice-question" rows="3"
+                      class="${C.input} resize-none"
+                      placeholder="e.g. What should I eat after my workout?"></textarea>
+            <button id="btn-ask" onclick="askAdvice()" class="${C.btnSuccess} w-full">
+              Ask Gemini
+            </button>
           </div>
-          <div id="advice-panel" class="prose prose-sm text-gray-700 flex-1 overflow-y-auto"></div>
+          <div id="advice-panel" class="prose prose-sm text-gray-700 dark:text-gray-200 flex-1 overflow-y-auto"
+               aria-live="polite"></div>
         </div>
       </div>
     </div>`;
@@ -485,15 +752,24 @@ async function renderMeals() {
   document.getElementById('meal-form').addEventListener('submit', async e => {
     e.preventDefault();
     clearError('meal-error');
-    const mealType = document.getElementById('meal-type').value;
+
+    const mealType    = document.getElementById('meal-type').value;
     const description = document.getElementById('meal-desc').value.trim();
-    const cal = document.getElementById('meal-cal').value;
-    const calories = cal ? parseInt(cal) : null;
-    const notes = document.getElementById('meal-notes').value.trim() || null;
+    const cal         = document.getElementById('meal-cal').value;
+    const calories    = cal ? parseInt(cal) : null;
+    const notes       = document.getElementById('meal-notes').value.trim() || null;
+
+    if (!description) {
+      showError('meal-error', 'Description is required.');
+      document.getElementById('meal-desc').focus();
+      return;
+    }
+
     const r = await Bridge.call('addMeal', { mealType, description, calories, notes });
     if (!r.ok) { showError('meal-error', r.data?.detail || r.data); return; }
-    document.getElementById('meal-desc').value = '';
-    document.getElementById('meal-cal').value = '';
+
+    document.getElementById('meal-desc').value  = '';
+    document.getElementById('meal-cal').value   = '';
     document.getElementById('meal-notes').value = '';
     await loadMealTable();
   });
@@ -503,34 +779,58 @@ async function loadMealTable() {
   const wrap = document.getElementById('meal-table-wrap');
   if (!wrap) return;
   const r = await Bridge.call('getTodayMeals');
-  if (!r.ok) { wrap.innerHTML = '<p class="text-red-500 text-sm">Failed to load meals.</p>'; return; }
-  const meals = r.data;
+  if (!r.ok) {
+    wrap.innerHTML = `<p class="text-red-500 dark:text-red-400 text-sm">Failed to load meals.</p>`;
+    return;
+  }
+
+  const meals    = r.data;
   const totalCal = meals.reduce((s, m) => s + (m.calories || 0), 0);
+  const mealTypeColors = {
+    Breakfast: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300',
+    Lunch:     'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
+    Dinner:    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+    Snack:     'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
+  };
 
   wrap.innerHTML = `
     <div class="flex justify-between items-center mb-3">
-      <h3 class="font-semibold text-gray-700">Today's Meals</h3>
-      <span class="text-sm font-medium text-indigo-600">${totalCal > 0 ? totalCal + ' cal total' : ''}</span>
+      <h3 class="font-semibold text-gray-700 dark:text-gray-200">Today's meals</h3>
+      ${totalCal > 0
+        ? `<span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+             ${totalCal} cal total
+           </span>`
+        : ''}
     </div>
-    ${meals.length === 0 ? '<p class="text-gray-400 text-sm">No meals logged today.</p>' : `
-    <div class="space-y-2">
-      ${meals.map(m => `
-        <div class="flex justify-between items-start border rounded-lg p-3 hover:bg-gray-50">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-semibold bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5">${escHtml(m.mealType)}</span>
-              ${m.calories ? `<span class="text-xs text-gray-400">${m.calories} cal</span>` : ''}
-            </div>
-            <div class="text-sm font-medium text-gray-800 mt-1">${escHtml(m.description)}</div>
-            ${m.notes ? `<div class="text-xs text-gray-400">${escHtml(m.notes)}</div>` : ''}
-          </div>
-          <button onclick="deleteMeal(${m.id})" class="text-red-400 hover:text-red-600 text-xs ml-2 flex-shrink-0">Delete</button>
-        </div>`).join('')}
-    </div>`}`;
+    ${meals.length === 0
+      ? `<p class="${C.mutedText}">No meals logged today.</p>`
+      : `<div class="space-y-2" id="meal-error">
+           ${meals.map(m => {
+             const badgeClass = mealTypeColors[m.mealType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+             return `
+               <div class="flex justify-between items-start border dark:border-gray-700 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                 <div class="flex-1 min-w-0">
+                   <div class="flex items-center gap-2 flex-wrap">
+                     <span class="${C.badge} ${badgeClass}">${escHtml(m.mealType)}</span>
+                     ${m.calories ? `<span class="text-xs text-gray-400 dark:text-gray-500">${m.calories} cal</span>` : ''}
+                   </div>
+                   <div class="text-sm font-medium text-gray-800 dark:text-gray-100 mt-1">
+                     ${escHtml(m.description)}
+                   </div>
+                   ${m.notes ? `<div class="text-xs text-gray-400 dark:text-gray-500">${escHtml(m.notes)}</div>` : ''}
+                 </div>
+                 <button onclick="deleteMeal(${m.id})"
+                         aria-label="Delete ${escHtml(m.mealType)} — ${escHtml(m.description)}"
+                         class="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 text-xs ml-2 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-end">
+                   Delete
+                 </button>
+               </div>`;
+           }).join('')}
+         </div>`}`;
 }
 
 async function deleteMeal(id) {
-  if (!confirm('Delete this meal?')) return;
+  if (!confirm('Delete this meal? This cannot be undone.')) return;
   const r = await Bridge.call('deleteMeal', { id });
   if (!r.ok) { showError('meal-error', r.data?.detail || r.data); return; }
   await loadMealTable();
@@ -539,15 +839,24 @@ async function deleteMeal(id) {
 async function askAdvice() {
   clearError('advice-error');
   const question = document.getElementById('advice-question').value.trim();
-  if (!question) return;
-  const btn = document.getElementById('btn-ask');
+  if (!question) {
+    showError('advice-error', 'Enter a question first.');
+    document.getElementById('advice-question').focus();
+    return;
+  }
+
+  const btn   = document.getElementById('btn-ask');
   const panel = document.getElementById('advice-panel');
-  btn.disabled = true;
-  btn.textContent = 'Asking…';
-  panel.innerHTML = '<div class="animate-pulse text-gray-400 text-sm">Generating advice…</div>';
+  btn.disabled     = true;
+  btn.textContent  = 'Asking Gemini…';
+  panel.innerHTML  = `
+    <div class="flex items-center gap-2 text-gray-400 dark:text-gray-500 text-sm" role="status">
+      <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+      Generating advice…
+    </div>`;
 
   const r = await Bridge.call('getMealAdvice', { question });
-  btn.disabled = false;
+  btn.disabled    = false;
   btn.textContent = 'Ask Gemini';
 
   if (!r.ok) {
@@ -555,36 +864,46 @@ async function askAdvice() {
     showError('advice-error', r.data?.detail || r.data || 'Failed to get advice.');
     return;
   }
+
   panel.innerHTML = md(r.data.advice);
 }
 
 // ─── AI HISTORY ───────────────────────────────────────────────────────────────
 let aiHistoryFilter = 'All';
-let aiHistoryData = [];
-let selectedAiId = null;
+let aiHistoryData   = [];
+let selectedAiId    = null;
 
 async function renderHistory() {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="space-y-4">
-      <h1 class="text-2xl font-bold text-gray-800">AI History</h1>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[70vh]">
+      <h1 class="${C.h1}">AI history</h1>
 
-        <!-- Left: filter + list -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" style="min-height: 70vh;">
+
+        <!-- Left: filter tabs + list -->
         <div class="flex flex-col gap-3">
-          <div class="flex gap-1 flex-wrap" id="history-filters">
-            ${['All','Exercise','Meal','General'].map(f =>
-              `<button onclick="setHistoryFilter('${f}')" data-filter="${f}"
-                class="text-xs px-3 py-1.5 rounded-full font-medium transition
-                  ${f === aiHistoryFilter ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${f}</button>`
-            ).join('')}
+          <div class="flex gap-1 flex-wrap" id="history-filters" role="tablist" aria-label="Filter AI history">
+            ${['All','Exercise','Meal','General'].map(f => `
+              <button role="tab"
+                      aria-selected="${f === aiHistoryFilter}"
+                      onclick="setHistoryFilter('${f}')"
+                      data-filter="${f}"
+                      class="text-xs px-3 py-2 rounded-full font-medium transition-colors min-h-[36px]
+                        ${f === aiHistoryFilter
+                          ? 'bg-indigo-600 dark:bg-indigo-700 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}">
+                ${f}
+              </button>`).join('')}
           </div>
-          <div id="history-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          <div id="history-list" class="flex-1 overflow-y-auto space-y-2 pr-1"
+               role="listbox" aria-label="AI history entries"></div>
         </div>
 
         <!-- Right: detail pane -->
-        <div class="lg:col-span-2 bg-white rounded-xl shadow overflow-y-auto">
-          <div id="history-detail" class="p-5 h-full flex items-center justify-center text-gray-400 text-sm">
+        <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow overflow-y-auto">
+          <div id="history-detail"
+               class="p-5 h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
             Select an entry to view details
           </div>
         </div>
@@ -605,30 +924,61 @@ async function loadAiHistory() {
 function renderHistoryList() {
   const list = document.getElementById('history-list');
   if (!list) return;
-  if (!aiHistoryData.length) { list.innerHTML = '<p class="text-gray-400 text-sm">No entries.</p>'; return; }
-  const typeColors = { Exercise: 'bg-purple-100 text-purple-700', Meal: 'bg-green-100 text-green-700', General: 'bg-blue-100 text-blue-700' };
+
+  if (!aiHistoryData.length) {
+    list.innerHTML = `<p class="${C.mutedText}">No entries.</p>`;
+    return;
+  }
+
+  const typeColors = {
+    Exercise: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
+    Meal:     'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
+    General:  'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  };
+
   list.innerHTML = aiHistoryData.map(item => {
-    const badge = typeColors[item.promptType] || 'bg-gray-100 text-gray-600';
+    const badge    = typeColors[item.promptType] || 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300';
     const isSelected = item.id === selectedAiId;
     return `
-      <div onclick="selectAiHistory(${item.id})" class="cursor-pointer border rounded-lg p-3 hover:bg-indigo-50 transition ${isSelected ? 'border-indigo-400 bg-indigo-50' : 'bg-white'}">
+      <div onclick="selectAiHistory(${item.id})"
+           role="option"
+           aria-selected="${isSelected}"
+           tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' ')selectAiHistory(${item.id})"
+           class="cursor-pointer border dark:border-gray-700 rounded-lg p-3 transition-colors
+                  ${isSelected
+                    ? 'border-indigo-400 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                    : 'bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-gray-700'}">
         <div class="flex justify-between items-start gap-2">
-          <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${badge}">${escHtml(item.promptType)}</span>
-          <button onclick="event.stopPropagation();deleteAiHistory(${item.id})" class="text-red-400 hover:text-red-600 text-xs">Delete</button>
+          <span class="${C.badge} ${badge}">${escHtml(item.promptType)}</span>
+          <button onclick="event.stopPropagation(); deleteAiHistory(${item.id})"
+                  aria-label="Delete ${escHtml(item.promptType)} history entry from ${fmtDateTime(item.createdAt)}"
+                  class="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 text-xs font-medium min-h-[32px] px-1">
+            Delete
+          </button>
         </div>
-        <p class="text-xs text-gray-500 mt-1">${fmtDateTime(item.createdAt)}</p>
-        <p class="text-sm text-gray-700 mt-1 truncate">${escHtml(item.prompt.substring(0, 80))}…</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${fmtDateTime(item.createdAt)}</p>
+        <p class="text-sm text-gray-700 dark:text-gray-200 mt-1 truncate">
+          ${escHtml(item.prompt.substring(0, 80))}…
+        </p>
       </div>`;
   }).join('');
 }
 
 function setHistoryFilter(filter) {
   aiHistoryFilter = filter;
-  selectedAiId = null;
+  selectedAiId    = null;
+
   document.querySelectorAll('[data-filter]').forEach(btn => {
     const active = btn.dataset.filter === filter;
-    btn.className = `text-xs px-3 py-1.5 rounded-full font-medium transition ${active ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+    btn.setAttribute('aria-selected', active);
+    btn.className = `text-xs px-3 py-2 rounded-full font-medium transition-colors min-h-[36px] ${
+      active
+        ? 'bg-indigo-600 dark:bg-indigo-700 text-white'
+        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+    }`;
   });
+
   loadAiHistory();
 }
 
@@ -640,41 +990,65 @@ function selectAiHistory(id) {
 
   const detail = document.getElementById('history-detail');
   detail.innerHTML = `
-    <div class="space-y-4">
+    <div class="space-y-4 p-5">
       <div class="flex justify-between items-start">
         <div>
-          <h3 class="font-bold text-gray-800">${escHtml(item.promptType)} Prompt</h3>
-          <p class="text-xs text-gray-400">${fmtDateTime(item.createdAt)} · ${escHtml(item.model)}</p>
+          <h3 class="${C.h3}">${escHtml(item.promptType)} prompt</h3>
+          <p class="${C.tinyText}">${fmtDateTime(item.createdAt)} · ${escHtml(item.model)}</p>
         </div>
-        <div class="text-right text-xs text-gray-400">
-          <div>${item.inputTokens} in / ${item.outputTokens} out tokens</div>
+        <div class="text-right text-xs text-gray-400 dark:text-gray-500 shrink-0">
+          ${item.inputTokens.toLocaleString()} in<br>
+          ${item.outputTokens.toLocaleString()} out tokens
         </div>
       </div>
+
       <div>
-        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Prompt</h4>
-        <pre class="text-xs bg-gray-50 border rounded p-3 overflow-x-auto whitespace-pre-wrap text-gray-700">${escHtml(item.prompt)}</pre>
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+          Prompt
+        </h4>
+        <pre class="text-xs bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap text-gray-700 dark:text-gray-200">${escHtml(item.prompt)}</pre>
       </div>
+
       <div>
-        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Response</h4>
-        <div class="prose prose-sm max-w-none bg-gray-50 border rounded p-3 text-gray-700">${md(item.response)}</div>
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+          Response
+        </h4>
+        <div class="prose prose-sm max-w-none bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 rounded-lg p-3 text-gray-700 dark:text-gray-200">
+          ${md(item.response)}
+        </div>
       </div>
     </div>`;
 }
 
 async function deleteAiHistory(id) {
-  if (!confirm('Delete this AI history entry?')) return;
+  if (!confirm('Delete this AI history entry? This cannot be undone.')) return;
   const r = await Bridge.call('deleteAiHistory', { id });
   if (!r.ok) {
-    alert(r.data?.detail || r.data || 'Failed to delete.');
+    // Show inline error — never use alert() for API errors
+    const list = document.getElementById('history-list');
+    const errId = 'ai-history-error';
+    let errEl = document.getElementById(errId);
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = errId;
+      list?.parentElement?.insertBefore(errEl, list);
+    }
+    showError(errId, r.data?.detail || r.data || 'Failed to delete.');
     return;
   }
   if (selectedAiId === id) {
     selectedAiId = null;
     const detail = document.getElementById('history-detail');
-    if (detail) detail.innerHTML = '<div class="h-full flex items-center justify-center text-gray-400 text-sm">Select an entry to view details</div>';
+    if (detail) {
+      detail.innerHTML = `
+        <div class="h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+          Select an entry to view details
+        </div>`;
+    }
   }
   await loadAiHistory();
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ─── Initialise ───────────────────────────────────────────────────────────────
+initTheme();
 navigate('dashboard');

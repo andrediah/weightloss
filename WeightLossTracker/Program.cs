@@ -6,21 +6,22 @@ using WeightLossTracker.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DB path
+// ─── Database ─────────────────────────────────────────────────────────────────
 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 var dbFolder = Path.Combine(appData, "WeightLossTracker");
 Directory.CreateDirectory(dbFolder);
 var dbPath = Path.Combine(dbFolder, "tracker.db");
 
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite($"Data Source={dbPath}"));
-builder.Services.AddScoped<GeminiService>();
-builder.Services.AddScoped<ExerciseService>();
+
+// ─── Application Services ─────────────────────────────────────────────────────
+builder.Services.AddWeightLossTrackerServices(builder.Configuration);
 
 var app = builder.Build();
 
-// Auto-migrate on startup.
+// ─── Auto-migrate on startup ──────────────────────────────────────────────────
 // If the DB file exists but no migrations have been applied, delete it so
-// Migrate() can start from a clean slate (handles leftover EnsureCreated DBs).
+// Migrate() can start from a clean slate (handles leftover partial-state DBs).
 using (var scope = app.Services.CreateScope())
 {
     var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -54,8 +55,6 @@ using (var scope = app.Services.CreateScope())
             startupLogger.LogWarning(
                 "Partial-state database detected (no completed migrations). Deleting and recreating.");
             File.Delete(dbPath);
-            // Also remove WAL/SHM journal files — if left behind, SQLite can
-            // recover old table state from the WAL into the fresh database.
             var walPath = dbPath + "-wal";
             var shmPath = dbPath + "-shm";
             if (File.Exists(walPath)) File.Delete(walPath);
@@ -67,10 +66,11 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-// Warn if no API key
+// ─── Degraded-mode warning ────────────────────────────────────────────────────
 var apiKey = app.Configuration["Gemini:ApiKey"] ?? "";
 if (string.IsNullOrWhiteSpace(apiKey))
-    app.Logger.LogWarning("Gemini:ApiKey is not configured. AI features will be unavailable (degraded mode).");
+    app.Logger.LogWarning(
+        "Gemini:ApiKey is not configured. AI features will be unavailable (degraded mode).");
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -82,12 +82,18 @@ app.MapGet("/api/dashboard", async (AppDbContext db) =>
     var entries = await db.WeightEntries.OrderBy(w => w.Date).ToListAsync();
 
     double? currentWeight = entries.LastOrDefault()?.Weight;
-    double lostSoFar = currentWeight.HasValue ? Math.Max(0, (profile?.StartingWeight ?? 215) - currentWeight.Value) : 0;
-    double toGoal = currentWeight.HasValue ? Math.Max(0, currentWeight.Value - (profile?.GoalWeight ?? 190)) : 25;
+    double lostSoFar = currentWeight.HasValue
+        ? Math.Max(0, (profile?.StartingWeight ?? 215) - currentWeight.Value)
+        : 0;
+    double toGoal = currentWeight.HasValue
+        ? Math.Max(0, currentWeight.Value - (profile?.GoalWeight ?? 190))
+        : 25;
     int daysLogged = entries.Count;
     double target = profile?.GoalWeight ?? 190;
     double start = profile?.StartingWeight ?? 215;
-    double progressPct = start == target ? 0 : Math.Min(100, Math.Round(lostSoFar / (start - target) * 100, 1));
+    double progressPct = start == target
+        ? 0
+        : Math.Min(100, Math.Round(lostSoFar / (start - target) * 100, 1));
 
     var labels = entries.Select(e => e.Date.ToString("yyyy-MM-dd")).ToList();
     var weights = entries.Select(e => e.Weight).ToList();
@@ -98,13 +104,18 @@ app.MapGet("/api/dashboard", async (AppDbContext db) =>
     {
         int n = weights.Count;
         double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-        for (int i = 0; i < n; i++) { sumX += i; sumY += weights[i]; sumXY += i * weights[i]; sumX2 += i * i; }
+        for (int i = 0; i < n; i++)
+        {
+            sumX += i; sumY += weights[i];
+            sumXY += i * weights[i]; sumX2 += i * i;
+        }
         double denom = n * sumX2 - sumX * sumX;
         if (denom != 0)
         {
             double slope = (n * sumXY - sumX * sumY) / denom;
             double intercept = (sumY - slope * sumX) / n;
-            for (int i = 0; i < n; i++) trendLine.Add(Math.Round(intercept + slope * i, 2));
+            for (int i = 0; i < n; i++)
+                trendLine.Add(Math.Round(intercept + slope * i, 2));
         }
     }
 
@@ -175,7 +186,8 @@ app.MapPut("/api/schedule", async (AppDbContext db, List<ScheduleUpdateItem> ite
 {
     foreach (var item in items)
     {
-        var day = await db.WorkoutScheduleDays.FirstOrDefaultAsync(s => s.DayOfWeek == item.DayOfWeek);
+        var day = await db.WorkoutScheduleDays
+            .FirstOrDefaultAsync(s => s.DayOfWeek == item.DayOfWeek);
         if (day != null) day.Location = item.Location;
     }
     await db.SaveChangesAsync();
@@ -183,7 +195,8 @@ app.MapPut("/api/schedule", async (AppDbContext db, List<ScheduleUpdateItem> ite
 });
 
 // ─── EXERCISE ─────────────────────────────────────────────────────────────────
-app.MapPost("/api/exercise/generate-day", async (ExerciseService svc, GeminiService gemini, GenerateDayRequest req) =>
+app.MapPost("/api/exercise/generate-day", async (
+    ExerciseService svc, GeminiService gemini, GenerateDayRequest req) =>
 {
     if (!gemini.IsConfigured)
         return Results.Problem("Gemini API key not configured.", statusCode: 503);
@@ -198,7 +211,8 @@ app.MapPost("/api/exercise/generate-day", async (ExerciseService svc, GeminiServ
     catch (GeminiApiException ex) { return Results.Problem(ex.Message, statusCode: 502); }
 });
 
-app.MapPost("/api/exercise/generate-week", async (ExerciseService svc, GeminiService gemini, HttpResponse response) =>
+app.MapPost("/api/exercise/generate-week", async (
+    ExerciseService svc, GeminiService gemini, HttpResponse response) =>
 {
     if (!gemini.IsConfigured)
     {
@@ -237,7 +251,9 @@ app.MapGet("/api/exercise/history", async (AppDbContext db, int? dayOfWeek) =>
 
 app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, int id) =>
 {
-    var suggestion = await db.ExerciseSuggestions.Include(e => e.AiPromptLog).FirstOrDefaultAsync(e => e.Id == id);
+    var suggestion = await db.ExerciseSuggestions
+        .Include(e => e.AiPromptLog)
+        .FirstOrDefaultAsync(e => e.Id == id);
     if (suggestion == null) return Results.NotFound();
     var log = suggestion.AiPromptLog;
     db.ExerciseSuggestions.Remove(suggestion);
@@ -250,9 +266,8 @@ app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, int id) 
 app.MapGet("/api/meals/today", async (AppDbContext db) =>
 {
     var today = DateTime.UtcNow.Date;
-    var tomorrow = today.AddDays(1);
     return Results.Ok(await db.MealLogs
-        .Where(m => m.Date >= today && m.Date < tomorrow)
+        .Where(m => m.Date >= today && m.Date < today.AddDays(1))
         .OrderBy(m => m.Date)
         .ToListAsync());
 });
@@ -261,6 +276,7 @@ app.MapPost("/api/meals", async (AppDbContext db, MealLogRequest req) =>
 {
     if (string.IsNullOrWhiteSpace(req.MealType) || string.IsNullOrWhiteSpace(req.Description))
         return Results.BadRequest("MealType and Description are required.");
+
     var meal = new MealLog
     {
         Date = DateTime.UtcNow,
@@ -283,7 +299,8 @@ app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, int id) =>
     return Results.Ok();
 });
 
-app.MapPost("/api/meals/advice", async (AppDbContext db, GeminiService gemini, ExerciseService svc, MealAdviceRequest req) =>
+app.MapPost("/api/meals/advice", async (
+    MealService mealSvc, GeminiService gemini, MealAdviceRequest req) =>
 {
     if (!gemini.IsConfigured)
         return Results.Problem("Gemini API key not configured.", statusCode: 503);
@@ -291,14 +308,13 @@ app.MapPost("/api/meals/advice", async (AppDbContext db, GeminiService gemini, E
         return Results.BadRequest("Question is required.");
     try
     {
-        var profile = await db.UserProfiles.FindAsync(1)
-            ?? new UserProfile { FitnessLevel = "Beginner", Injuries = "Neck, lower back", Goals = "Lose 25 lbs" };
-        var today = DateTime.UtcNow.Date;
-        var tomorrow = today.AddDays(1);
-        var todayMeals = await db.MealLogs.Where(m => m.Date >= today && m.Date < tomorrow).ToListAsync();
-        var prompt = svc.BuildMealAdvicePrompt(profile, req.Question, todayMeals);
-        var result = await gemini.GenerateAsync(prompt, "Meal");
-        return Results.Ok(new { advice = result.Text, inputTokens = result.InputTokens, outputTokens = result.OutputTokens });
+        var result = await mealSvc.GetNutritionAdviceAsync(req.Question);
+        return Results.Ok(new
+        {
+            advice = result.Text,
+            inputTokens = result.InputTokens,
+            outputTokens = result.OutputTokens
+        });
     }
     catch (GeminiApiException ex) { return Results.Problem(ex.Message, statusCode: 502); }
 });
@@ -316,7 +332,9 @@ app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, int id) =>
     var log = await db.AiPromptLogs.FindAsync(id);
     if (log == null) return Results.NotFound();
     var linked = await db.ExerciseSuggestions.AnyAsync(e => e.AiPromptLogId == id);
-    if (linked) return Results.Conflict("A linked ExerciseSuggestion exists. Delete the exercise history entry first.");
+    if (linked)
+        return Results.Conflict(
+            "A linked ExerciseSuggestion exists. Delete the exercise history entry first.");
     db.AiPromptLogs.Remove(log);
     await db.SaveChangesAsync();
     return Results.Ok();
