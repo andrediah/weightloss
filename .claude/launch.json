@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "weightloss",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "WeightLossTracker"],
+      "port": 5000
+    }
+  ]
+}
