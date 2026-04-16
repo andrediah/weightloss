@@ -33,26 +33,19 @@ public class MealService(AppDbContext db, GeminiService gemini)
             """;
     }
 
-    public async Task<GeminiResult> GetNutritionAdviceAsync(string question, CancellationToken ct = default)
+    public async Task<GeminiResult> GetNutritionAdviceAsync(string question, int profileId, CancellationToken ct = default)
     {
-        var profile = await db.UserProfiles.FindAsync([1], ct).ConfigureAwait(false)
-            ?? new UserProfile
-            {
-                FitnessLevel = "Beginner",
-                Injuries = "Neck injury, lower back injury",
-                Goals = "Lose 25 lbs, build muscle",
-                StartingWeight = 215,
-                GoalWeight = 190
-            };
+        var profile = await db.UserProfiles.FindAsync([profileId], ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("User profile not found.");
 
         var today = DateTime.UtcNow.Date;
         var todayMeals = await db.MealLogs
             .AsNoTracking()
-            .Where(m => m.Date >= today && m.Date < today.AddDays(1))
+            .Where(m => m.UserProfileId == profileId && m.Date >= today && m.Date < today.AddDays(1))
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
         var prompt = BuildMealAdvicePrompt(profile, question, todayMeals);
-        return await gemini.GenerateAsync(prompt, "Meal", ct).ConfigureAwait(false);
+        return await gemini.GenerateAsync(prompt, "Meal", profileId, ct).ConfigureAwait(false);
     }
 }

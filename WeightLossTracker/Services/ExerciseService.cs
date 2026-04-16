@@ -58,13 +58,13 @@ public class ExerciseService(AppDbContext db, GeminiService gemini)
     }
 
     public async Task<ExerciseSuggestion> GenerateDayWorkoutAsync(
-        int dayOfWeek, CancellationToken ct = default)
+        int dayOfWeek, int profileId, CancellationToken ct = default)
     {
-        var profile = await db.UserProfiles.FindAsync([1], ct).ConfigureAwait(false)
+        var profile = await db.UserProfiles.FindAsync([profileId], ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("User profile not found.");
 
         var day = await db.WorkoutScheduleDays
-            .FirstOrDefaultAsync(s => s.DayOfWeek == dayOfWeek, ct)
+            .FirstOrDefaultAsync(s => s.UserProfileId == profileId && s.DayOfWeek == dayOfWeek, ct)
             .ConfigureAwait(false)
             ?? throw new ArgumentException($"No schedule entry for day {dayOfWeek}.");
 
@@ -72,6 +72,7 @@ public class ExerciseService(AppDbContext db, GeminiService gemini)
             throw new ArgumentException($"Day {dayOfWeek} is set to Rest — no workout to generate.");
 
         var fullSchedule = await db.WorkoutScheduleDays
+            .Where(s => s.UserProfileId == profileId)
             .OrderBy(s => s.DayOfWeek)
             .ToListAsync(ct)
             .ConfigureAwait(false);
@@ -85,12 +86,13 @@ public class ExerciseService(AppDbContext db, GeminiService gemini)
         var category = GetCategory(dayIndex >= 0 ? dayIndex : 0);
 
         var prompt = BuildExercisePrompt(profile, day, category, fullSchedule);
-        var (result, logId) = await gemini.GenerateWithLogIdAsync(prompt, "Exercise", ct)
+        var (result, logId) = await gemini.GenerateWithLogIdAsync(prompt, "Exercise", profileId, ct)
             .ConfigureAwait(false);
 
         var suggestion = new ExerciseSuggestion
         {
             CreatedAt = DateTime.UtcNow,
+            UserProfileId = profileId,
             DayOfWeek = dayOfWeek,
             Location = day.Location,
             Category = category,
@@ -104,12 +106,13 @@ public class ExerciseService(AppDbContext db, GeminiService gemini)
     }
 
     public async IAsyncEnumerable<(ExerciseSuggestion Suggestion, string? Error)> GenerateWeekWorkoutsAsync(
-        [EnumeratorCancellation] CancellationToken ct = default)
+        int profileId, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var profile = await db.UserProfiles.FindAsync([1], ct).ConfigureAwait(false)
+        var profile = await db.UserProfiles.FindAsync([profileId], ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("User profile not found.");
 
         var fullSchedule = await db.WorkoutScheduleDays
+            .Where(s => s.UserProfileId == profileId)
             .OrderBy(s => s.DayOfWeek)
             .ToListAsync(ct)
             .ConfigureAwait(false);
@@ -131,12 +134,13 @@ public class ExerciseService(AppDbContext db, GeminiService gemini)
             try
             {
                 var (result, logId) = await gemini
-                    .GenerateWithLogIdAsync(prompt, "Exercise", ct)
+                    .GenerateWithLogIdAsync(prompt, "Exercise", profileId, ct)
                     .ConfigureAwait(false);
 
                 suggestion = new ExerciseSuggestion
                 {
                     CreatedAt = DateTime.UtcNow,
+                    UserProfileId = profileId,
                     DayOfWeek = day.DayOfWeek,
                     Location = day.Location,
                     Category = category,

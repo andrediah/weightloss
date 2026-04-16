@@ -24,9 +24,9 @@ Weight Loss Tracker is a personal, self-hosted web application that helps a sing
 - Give AI-powered nutrition guidance in conversational plain language
 - Keep all data local (SQLite on-device) with no cloud sync or account required
 - Maintain a complete, queryable history of every prompt sent to the AI
+- Multi-profile support — multiple independent profiles with separate data, no authentication required
 
 ### Non-Goals
-- Multi-user support
 - Mobile native app
 - Calorie/macro calculation engine (delegated entirely to Gemini)
 - Social / sharing features
@@ -34,10 +34,13 @@ Weight Loss Tracker is a personal, self-hosted web application that helps a sing
 
 ---
 
-## 3. User Profile
+## 3. User Profiles
 
-| Attribute | Value |
+The app supports multiple independent profiles. Each profile has its own weight entries, meal logs, workout schedule, exercise suggestions, and AI history. A default profile is seeded on first run:
+
+| Attribute | Default Value |
 |---|---|
+| Name | Default |
 | Starting weight | 215 lbs |
 | Goal weight | 190 lbs |
 | Target loss | 25 lbs |
@@ -46,7 +49,7 @@ Weight Loss Tracker is a personal, self-hosted web application that helps a sing
 | Primary goals | Lose weight · Build muscle |
 | Start date | 2026-04-09 |
 
-All AI prompts embed this profile to ensure suggestions are safe, relevant, and appropriately scaled.
+Users can create additional profiles, edit any profile, and switch between them via a dropdown in the sidebar/header. No authentication is required — profile selection is persisted in `localStorage` and sent via the `X-Profile-Id` HTTP header. All AI prompts embed the active profile to ensure suggestions are safe, relevant, and appropriately scaled.
 
 ---
 
@@ -96,7 +99,8 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 ### `UserProfile`
 | Column | Type | Notes |
 |---|---|---|
-| Id | int PK | Seeded as 1 (single user) |
+| Id | int PK | Seeded as 1 (default profile) |
+| Name | string | Display name (e.g. "Default", "Andre") |
 | StartingWeight | double | 215.0 |
 | GoalWeight | double | 190.0 |
 | StartDate | DateTime | 2026-04-09 |
@@ -108,7 +112,8 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 | Column | Type | Notes |
 |---|---|---|
 | Id | int PK | |
-| Date | DateTime | Unique per calendar day (upsert enforced at service layer + DB unique index on date) |
+| UserProfileId | int FK → UserProfile | Cascade delete |
+| Date | DateTime | Composite unique with UserProfileId (one entry per day per profile) |
 | Weight | double | lbs |
 | Notes | string? | Free text |
 
@@ -116,6 +121,7 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 | Column | Type | Notes |
 |---|---|---|
 | Id | int PK | |
+| UserProfileId | int FK → UserProfile | Cascade delete |
 | Date | DateTime | |
 | MealType | string | Breakfast / Lunch / Dinner / Snack |
 | Description | string | |
@@ -126,15 +132,17 @@ All AI prompts embed this profile to ensure suggestions are safe, relevant, and 
 | Column | Type | Notes |
 |---|---|---|
 | Id | int PK | |
-| DayOfWeek | int | 0 = Sunday … 6 = Saturday; unique index enforced |
+| UserProfileId | int FK → UserProfile | Cascade delete |
+| DayOfWeek | int | 0 = Sunday … 6 = Saturday; composite unique with UserProfileId |
 | Location | string | Rest / Home / Gym |
 
-Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — single-user app by design (Id 1 is always the implicit owner).
+Default seed: Mon–Fri → Home, Sat/Sun → Rest for profile 1. New profiles get 7 "Rest" days on creation.
 
 ### `ExerciseSuggestion`
 | Column | Type | Notes |
 |---|---|---|
 | Id | int PK | |
+| UserProfileId | int FK → UserProfile | Cascade delete |
 | CreatedAt | DateTime | UTC |
 | DayOfWeek | int? | 0–6 |
 | Location | string | Home / Gym |
@@ -146,6 +154,7 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 | Column | Type | Notes |
 |---|---|---|
 | Id | int PK | |
+| UserProfileId | int FK → UserProfile | Cascade delete |
 | CreatedAt | DateTime | UTC |
 | PromptType | string | Exercise / Meal / General |
 | Prompt | string | Full prompt sent |
@@ -158,8 +167,15 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 
 ## 6. API Endpoints
 
+All endpoints (except `/api/profiles`) read the `X-Profile-Id` HTTP header to scope data to the active profile. If the header is missing, profile 1 is used as the default.
+
 | Method | Route | Description |
 |---|---|---|
+| GET | `/api/profiles` | List all profiles |
+| POST | `/api/profiles` | Create a new profile (+ 7 default schedule days) |
+| GET | `/api/profiles/{id}` | Get a single profile |
+| PUT | `/api/profiles/{id}` | Update a profile |
+| DELETE | `/api/profiles/{id}` | Delete a profile and all its data (prevents deleting the last profile) |
 | GET | `/api/dashboard` | Aggregated stats + chart data |
 | GET | `/api/weight` | All weight entries (desc) |
 | POST | `/api/weight` | Upsert today's weight entry |
@@ -215,7 +231,15 @@ Default seed: Mon–Fri → Home, Sat/Sun → Rest. No FK to `UserProfile` — s
 - Delete individual meals
 - Free-text question box → "Ask Gemini" → inline nutrition advice rendered in the advice panel
 
-### 7.5 AI History
+### 7.5 Profile Management
+- Profile selector dropdown in sidebar (desktop) and mobile header for quick switching
+- Profile view with edit form for the active profile (name, weights, fitness level, injuries, goals)
+- Create new profile form with all fields; new profiles get 7 "Rest" workout schedule days
+- List of all profiles with switch/delete actions; cannot delete the last remaining profile
+- Profile switch re-renders the current view with the new profile's data
+- Active profile ID persisted in `localStorage`, sent as `X-Profile-Id` header on all API calls
+
+### 7.6 AI History
 - Master-detail layout: filter tabs (All / Exercise / Meal / General) + scrollable list + detail pane
 - Detail pane shows full prompt text, full response (rendered markdown), model name, and token counts
 - Token usage visible for cost awareness
@@ -371,7 +395,7 @@ Default URL: `http://localhost:5000`
 
 | Priority | Feature | Notes |
 |---|---|---|
-| High | User profile editor | Edit starting weight, goal, injuries in-app instead of via DB seed |
+| ~~High~~ | ~~User profile editor~~ | ~~Implemented — see §7.5 Profile Management~~ |
 | Medium | Historic meal browsing | View past days' meals, not just today |
 | Medium | Weekly summary report | AI-generated weekly review of weight trend + workouts completed |
 | Medium | Calorie goal setting | Daily calorie budget with over/under indicator |

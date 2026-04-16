@@ -2,6 +2,11 @@
 const Bridge = (() => {
   async function call(action, data) {
     const routes = {
+      getProfiles:          { method: 'GET',    url: '/api/profiles' },
+      createProfile:        { method: 'POST',   url: '/api/profiles' },
+      getProfile:           { method: 'GET',    url: '/api/profiles/{id}' },
+      updateProfile:        { method: 'PUT',    url: '/api/profiles/{id}' },
+      deleteProfile:        { method: 'DELETE', url: '/api/profiles/{id}' },
       getDashboard:         { method: 'GET',    url: '/api/dashboard' },
       getWeightEntries:     { method: 'GET',    url: '/api/weight' },
       saveWeight:           { method: 'POST',   url: '/api/weight' },
@@ -50,10 +55,15 @@ const Bridge = (() => {
       }
     }
 
+    // Build headers with active profile ID
+    const profileId = localStorage.getItem('activeProfileId') || '1';
+    const headers = { 'X-Profile-Id': profileId };
+    if (body) headers['Content-Type'] = 'application/json';
+
     try {
       const res = await fetch(url, {
         method: route.method,
-        headers: body ? { 'Content-Type': 'application/json' } : {},
+        headers,
         body,
       });
 

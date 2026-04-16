@@ -14,15 +14,41 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Unique index: one weight entry per calendar day
+        // Composite unique index: one weight entry per calendar day per profile
         modelBuilder.Entity<WeightEntry>()
-            .HasIndex(w => w.Date)
+            .HasIndex(w => new { w.UserProfileId, w.Date })
             .IsUnique();
 
-        // Unique index: one schedule entry per day of week
+        modelBuilder.Entity<WeightEntry>()
+            .HasOne(w => w.UserProfile)
+            .WithMany()
+            .HasForeignKey(w => w.UserProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Composite unique index: one schedule entry per day of week per profile
         modelBuilder.Entity<WorkoutScheduleDay>()
-            .HasIndex(s => s.DayOfWeek)
+            .HasIndex(s => new { s.UserProfileId, s.DayOfWeek })
             .IsUnique();
+
+        modelBuilder.Entity<WorkoutScheduleDay>()
+            .HasOne(s => s.UserProfile)
+            .WithMany()
+            .HasForeignKey(s => s.UserProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // MealLog -> UserProfile cascade
+        modelBuilder.Entity<MealLog>()
+            .HasOne(m => m.UserProfile)
+            .WithMany()
+            .HasForeignKey(m => m.UserProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ExerciseSuggestion -> UserProfile cascade
+        modelBuilder.Entity<ExerciseSuggestion>()
+            .HasOne(e => e.UserProfile)
+            .WithMany()
+            .HasForeignKey(e => e.UserProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // ExerciseSuggestion -> AiPromptLog 1:1, restrict delete
         modelBuilder.Entity<ExerciseSuggestion>()
@@ -35,10 +61,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey<ExerciseSuggestion>(e => e.AiPromptLogId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // AiPromptLog -> UserProfile cascade
+        modelBuilder.Entity<AiPromptLog>()
+            .HasOne(l => l.UserProfile)
+            .WithMany()
+            .HasForeignKey(l => l.UserProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Seed UserProfile
         modelBuilder.Entity<UserProfile>().HasData(new UserProfile
         {
             Id = 1,
+            Name = "Default",
             StartingWeight = 215.0,
             GoalWeight = 190.0,
             StartDate = new DateTime(2026, 4, 9, 0, 0, 0, DateTimeKind.Utc),
@@ -49,13 +83,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         // Seed WorkoutSchedule: Mon–Fri = Home, Sat/Sun = Rest
         modelBuilder.Entity<WorkoutScheduleDay>().HasData(
-            new WorkoutScheduleDay { Id = 1, DayOfWeek = 0, Location = "Rest" },   // Sunday
-            new WorkoutScheduleDay { Id = 2, DayOfWeek = 1, Location = "Home" },   // Monday
-            new WorkoutScheduleDay { Id = 3, DayOfWeek = 2, Location = "Home" },   // Tuesday
-            new WorkoutScheduleDay { Id = 4, DayOfWeek = 3, Location = "Home" },   // Wednesday
-            new WorkoutScheduleDay { Id = 5, DayOfWeek = 4, Location = "Home" },   // Thursday
-            new WorkoutScheduleDay { Id = 6, DayOfWeek = 5, Location = "Home" },   // Friday
-            new WorkoutScheduleDay { Id = 7, DayOfWeek = 6, Location = "Rest" }    // Saturday
+            new WorkoutScheduleDay { Id = 1, UserProfileId = 1, DayOfWeek = 0, Location = "Rest" },   // Sunday
+            new WorkoutScheduleDay { Id = 2, UserProfileId = 1, DayOfWeek = 1, Location = "Home" },   // Monday
+            new WorkoutScheduleDay { Id = 3, UserProfileId = 1, DayOfWeek = 2, Location = "Home" },   // Tuesday
+            new WorkoutScheduleDay { Id = 4, UserProfileId = 1, DayOfWeek = 3, Location = "Home" },   // Wednesday
+            new WorkoutScheduleDay { Id = 5, UserProfileId = 1, DayOfWeek = 4, Location = "Home" },   // Thursday
+            new WorkoutScheduleDay { Id = 6, UserProfileId = 1, DayOfWeek = 5, Location = "Home" },   // Friday
+            new WorkoutScheduleDay { Id = 7, UserProfileId = 1, DayOfWeek = 6, Location = "Rest" }    // Saturday
         );
     }
 }
