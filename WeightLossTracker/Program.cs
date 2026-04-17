@@ -106,17 +106,23 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ─── Helper: extract active profile ID from X-Profile-Id header ──────────────
-static int GetProfileId(HttpContext ctx) =>
-    int.TryParse(
-        ctx.User.FindFirst("profileId")?.Value,
-        out var id) && id > 0 ? id : 0;
+// ─── Helper: extract active profile ID from the authenticated user's claims ───
+static int GetProfileId(HttpContext ctx)
+{
+    var value = ctx.User.FindFirst("profileId")?.Value;
+    if (int.TryParse(value, out var id) && id > 0) return id;
+    throw new InvalidOperationException("Authenticated user has no valid profileId claim.");
+}
 
 // ─── PROFILES ─────────────────────────────────────────────────────────────────
-app.MapGet("/api/profiles", async (AppDbContext db) =>
-    Results.Ok(await db.UserProfiles.OrderBy(p => p.Id).ToListAsync())).RequireAuthorization();
+app.MapGet("/api/profiles", async (AppDbContext db, HttpContext ctx) =>
+{
+    var profileId = GetProfileId(ctx);
+    var profile = await db.UserProfiles.FindAsync(profileId);
+    return profile is null ? Results.NotFound() : Results.Ok(profile);
+}).RequireAuthorization();
 
-app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
+app.MapPost("/api/profiles", async (AppDbContext db, HttpContext ctx, ProfileRequest req) =>
 {
     if (string.IsNullOrWhiteSpace(req.Name))
         return Results.BadRequest("Name is required.");
@@ -131,6 +137,8 @@ app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
         Injuries = req.Injuries ?? "",
         Goals = req.Goals ?? ""
     };
+    var userId = int.Parse(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+    profile.UserId = userId;
     db.UserProfiles.Add(profile);
     await db.SaveChangesAsync();
 
@@ -149,14 +157,16 @@ app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
     return Results.Ok(profile);
 }).RequireAuthorization();
 
-app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
+app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    if (id != GetProfileId(ctx)) return Results.Forbid();
     var profile = await db.UserProfiles.FindAsync(id);
     return profile is null ? Results.NotFound() : Results.Ok(profile);
 }).RequireAuthorization();
 
-app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequest req) =>
+app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id, ProfileRequest req) =>
 {
+    if (id != GetProfileId(ctx)) return Results.Forbid();
     var profile = await db.UserProfiles.FindAsync(id);
     if (profile is null) return Results.NotFound();
 
@@ -174,8 +184,9 @@ app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequ
     return Results.Ok(profile);
 }).RequireAuthorization();
 
-app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    if (id != GetProfileId(ctx)) return Results.Forbid();
     var count = await db.UserProfiles.CountAsync();
     if (count <= 1) return Results.BadRequest("Cannot delete the last profile.");
 
