@@ -75,22 +75,113 @@ if (string.IsNullOrWhiteSpace(apiKey))
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
-app.MapGet("/api/dashboard", async (AppDbContext db) =>
+// ─── Helper: extract active profile ID from X-Profile-Id header ──────────────
+static int GetProfileId(HttpContext ctx) =>
+    int.TryParse(ctx.Request.Headers["X-Profile-Id"].FirstOrDefault(), out var id) && id > 0
+        ? id : 1;
+
+// ─── PROFILES ─────────────────────────────────────────────────────────────────
+app.MapGet("/api/profiles", async (AppDbContext db) =>
+    Results.Ok(await db.UserProfiles.OrderBy(p => p.Id).ToListAsync()));
+
+app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
 {
-    var profile = await db.UserProfiles.FindAsync(1);
-    var entries = await db.WeightEntries.OrderBy(w => w.Date).ToListAsync();
+    if (string.IsNullOrWhiteSpace(req.Name))
+        return Results.BadRequest("Name is required.");
+
+    var profile = new UserProfile
+    {
+        Name = req.Name.Trim(),
+        StartingWeight = req.StartingWeight,
+        GoalWeight = req.GoalWeight,
+        StartDate = req.StartDate,
+        FitnessLevel = req.FitnessLevel ?? "",
+        Injuries = req.Injuries ?? "",
+        Goals = req.Goals ?? ""
+    };
+    db.UserProfiles.Add(profile);
+    await db.SaveChangesAsync();
+
+    // Create 7 default WorkoutScheduleDays (all Rest)
+    for (int dow = 0; dow <= 6; dow++)
+    {
+        db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
+        {
+            UserProfileId = profile.Id,
+            DayOfWeek = dow,
+            Location = "Rest"
+        });
+    }
+    await db.SaveChangesAsync();
+
+    return Results.Ok(profile);
+});
+
+app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
+{
+    var profile = await db.UserProfiles.FindAsync(id);
+    return profile is null ? Results.NotFound() : Results.Ok(profile);
+});
+
+app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequest req) =>
+{
+    var profile = await db.UserProfiles.FindAsync(id);
+    if (profile is null) return Results.NotFound();
+
+    if (string.IsNullOrWhiteSpace(req.Name))
+        return Results.BadRequest("Name is required.");
+
+    profile.Name = req.Name.Trim();
+    profile.StartingWeight = req.StartingWeight;
+    profile.GoalWeight = req.GoalWeight;
+    profile.StartDate = req.StartDate;
+    profile.FitnessLevel = req.FitnessLevel ?? "";
+    profile.Injuries = req.Injuries ?? "";
+    profile.Goals = req.Goals ?? "";
+    await db.SaveChangesAsync();
+    return Results.Ok(profile);
+});
+
+app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
+{
+    var count = await db.UserProfiles.CountAsync();
+    if (count <= 1) return Results.BadRequest("Cannot delete the last profile.");
+
+    var profile = await db.UserProfiles.FindAsync(id);
+    if (profile is null) return Results.NotFound();
+
+    // Manually remove ExerciseSuggestions first (they have Restrict FK to AiPromptLog)
+    var exercises = await db.ExerciseSuggestions
+        .Where(e => e.UserProfileId == id)
+        .ToListAsync();
+    db.ExerciseSuggestions.RemoveRange(exercises);
+    await db.SaveChangesAsync();
+
+    db.UserProfiles.Remove(profile);
+    await db.SaveChangesAsync();
+    return Results.Ok();
+});
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
+{
+    var profileId = GetProfileId(ctx);
+    var profile = await db.UserProfiles.FindAsync(profileId);
+    var entries = await db.WeightEntries
+        .Where(w => w.UserProfileId == profileId)
+        .OrderBy(w => w.Date)
+        .ToListAsync();
 
     double? currentWeight = entries.LastOrDefault()?.Weight;
+    double start = profile?.StartingWeight ?? 215;
+    double target = profile?.GoalWeight ?? 190;
     double lostSoFar = currentWeight.HasValue
-        ? Math.Max(0, (profile?.StartingWeight ?? 215) - currentWeight.Value)
+        ? Math.Max(0, start - currentWeight.Value)
         : 0;
     double toGoal = currentWeight.HasValue
-        ? Math.Max(0, currentWeight.Value - (profile?.GoalWeight ?? 190))
-        : 25;
+        ? Math.Max(0, currentWeight.Value - target)
+        : start - target;
     int daysLogged = entries.Count;
-    double target = profile?.GoalWeight ?? 190;
-    double start = profile?.StartingWeight ?? 215;
     double progressPct = start == target
         ? 0
         : Math.Min(100, Math.Round(lostSoFar / (start - target) * 100, 1));
@@ -122,6 +213,7 @@ app.MapGet("/api/dashboard", async (AppDbContext db) =>
     return Results.Ok(new
     {
         currentWeight,
+        startingWeight = start,
         lostSoFar = Math.Round(lostSoFar, 1),
         toGoal = Math.Round(toGoal, 1),
         daysLogged,
@@ -132,16 +224,24 @@ app.MapGet("/api/dashboard", async (AppDbContext db) =>
 });
 
 // ─── WEIGHT ───────────────────────────────────────────────────────────────────
-app.MapGet("/api/weight", async (AppDbContext db) =>
-    Results.Ok(await db.WeightEntries.OrderByDescending(w => w.Date).ToListAsync()));
+app.MapGet("/api/weight", async (AppDbContext db, HttpContext ctx) =>
+{
+    var profileId = GetProfileId(ctx);
+    return Results.Ok(await db.WeightEntries
+        .Where(w => w.UserProfileId == profileId)
+        .OrderByDescending(w => w.Date)
+        .ToListAsync());
+});
 
-app.MapPost("/api/weight", async (AppDbContext db, WeightEntryRequest req) =>
+app.MapPost("/api/weight", async (AppDbContext db, HttpContext ctx, WeightEntryRequest req) =>
 {
     if (req.Weight < 50 || req.Weight > 500)
         return Results.BadRequest("Weight must be between 50 and 500 lbs.");
 
+    var profileId = GetProfileId(ctx);
     var today = DateTime.UtcNow.Date;
-    var existing = await db.WeightEntries.FirstOrDefaultAsync(w => w.Date == today);
+    var existing = await db.WeightEntries
+        .FirstOrDefaultAsync(w => w.UserProfileId == profileId && w.Date == today);
     if (existing != null)
     {
         existing.Weight = req.Weight;
@@ -150,53 +250,71 @@ app.MapPost("/api/weight", async (AppDbContext db, WeightEntryRequest req) =>
         return Results.Ok(existing);
     }
 
-    var entry = new WeightEntry { Date = today, Weight = req.Weight, Notes = req.Notes };
+    var entry = new WeightEntry
+    {
+        UserProfileId = profileId,
+        Date = today,
+        Weight = req.Weight,
+        Notes = req.Notes
+    };
     db.WeightEntries.Add(entry);
     await db.SaveChangesAsync();
     return Results.Ok(entry);
 });
 
-app.MapPut("/api/weight/{id:int}", async (AppDbContext db, int id, WeightEntryRequest req) =>
+app.MapPut("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int id, WeightEntryRequest req) =>
 {
     if (req.Weight < 50 || req.Weight > 500)
         return Results.BadRequest("Weight must be between 50 and 500 lbs.");
 
+    var profileId = GetProfileId(ctx);
     var entry = await db.WeightEntries.FindAsync(id);
-    if (entry == null) return Results.NotFound();
+    if (entry == null || entry.UserProfileId != profileId) return Results.NotFound();
     entry.Weight = req.Weight;
     entry.Notes = req.Notes;
     await db.SaveChangesAsync();
     return Results.Ok(entry);
 });
 
-app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    var profileId = GetProfileId(ctx);
     var entry = await db.WeightEntries.FindAsync(id);
-    if (entry == null) return Results.NotFound();
+    if (entry == null || entry.UserProfileId != profileId) return Results.NotFound();
     db.WeightEntries.Remove(entry);
     await db.SaveChangesAsync();
     return Results.Ok();
 });
 
 // ─── SCHEDULE ─────────────────────────────────────────────────────────────────
-app.MapGet("/api/schedule", async (AppDbContext db) =>
-    Results.Ok(await db.WorkoutScheduleDays.OrderBy(s => s.DayOfWeek).ToListAsync()));
-
-app.MapPut("/api/schedule", async (AppDbContext db, List<ScheduleUpdateItem> items) =>
+app.MapGet("/api/schedule", async (AppDbContext db, HttpContext ctx) =>
 {
+    var profileId = GetProfileId(ctx);
+    return Results.Ok(await db.WorkoutScheduleDays
+        .Where(s => s.UserProfileId == profileId)
+        .OrderBy(s => s.DayOfWeek)
+        .ToListAsync());
+});
+
+app.MapPut("/api/schedule", async (AppDbContext db, HttpContext ctx, List<ScheduleUpdateItem> items) =>
+{
+    var profileId = GetProfileId(ctx);
     foreach (var item in items)
     {
         var day = await db.WorkoutScheduleDays
-            .FirstOrDefaultAsync(s => s.DayOfWeek == item.DayOfWeek);
+            .FirstOrDefaultAsync(s => s.UserProfileId == profileId && s.DayOfWeek == item.DayOfWeek);
         if (day != null) day.Location = item.Location;
     }
     await db.SaveChangesAsync();
-    return Results.Ok(await db.WorkoutScheduleDays.OrderBy(s => s.DayOfWeek).ToListAsync());
+    return Results.Ok(await db.WorkoutScheduleDays
+        .Where(s => s.UserProfileId == profileId)
+        .OrderBy(s => s.DayOfWeek)
+        .ToListAsync());
 });
 
 // ─── EXERCISE ─────────────────────────────────────────────────────────────────
 app.MapPost("/api/exercise/generate-day", async (
-    ExerciseService svc, GeminiService gemini, GenerateDayRequest req) =>
+    ExerciseService svc, GeminiService gemini, HttpContext ctx, GenerateDayRequest req) =>
 {
     if (!gemini.IsConfigured)
         return Results.Problem("Gemini API key not configured.", statusCode: 503);
@@ -204,7 +322,8 @@ app.MapPost("/api/exercise/generate-day", async (
         return Results.BadRequest("dayOfWeek must be 0–6.");
     try
     {
-        var suggestion = await svc.GenerateDayWorkoutAsync(req.DayOfWeek);
+        var profileId = GetProfileId(ctx);
+        var suggestion = await svc.GenerateDayWorkoutAsync(req.DayOfWeek, profileId);
         return Results.Ok(suggestion);
     }
     catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
@@ -212,7 +331,7 @@ app.MapPost("/api/exercise/generate-day", async (
 });
 
 app.MapPost("/api/exercise/generate-week", async (
-    ExerciseService svc, GeminiService gemini, HttpResponse response) =>
+    ExerciseService svc, GeminiService gemini, HttpContext ctx, HttpResponse response) =>
 {
     if (!gemini.IsConfigured)
     {
@@ -221,8 +340,9 @@ app.MapPost("/api/exercise/generate-week", async (
         return;
     }
 
+    var profileId = GetProfileId(ctx);
     var results = new List<object>();
-    await foreach (var (suggestion, error) in svc.GenerateWeekWorkoutsAsync())
+    await foreach (var (suggestion, error) in svc.GenerateWeekWorkoutsAsync(profileId))
     {
         if (error != null)
         {
@@ -242,18 +362,21 @@ app.MapPost("/api/exercise/generate-week", async (
     await response.WriteAsJsonAsync(results);
 });
 
-app.MapGet("/api/exercise/history", async (AppDbContext db, int? dayOfWeek) =>
+app.MapGet("/api/exercise/history", async (AppDbContext db, HttpContext ctx, int? dayOfWeek) =>
 {
-    var query = db.ExerciseSuggestions.AsQueryable();
+    var profileId = GetProfileId(ctx);
+    var query = db.ExerciseSuggestions
+        .Where(e => e.UserProfileId == profileId);
     if (dayOfWeek.HasValue) query = query.Where(e => e.DayOfWeek == dayOfWeek.Value);
     return Results.Ok(await query.OrderByDescending(e => e.CreatedAt).ToListAsync());
 });
 
-app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    var profileId = GetProfileId(ctx);
     var suggestion = await db.ExerciseSuggestions
         .Include(e => e.AiPromptLog)
-        .FirstOrDefaultAsync(e => e.Id == id);
+        .FirstOrDefaultAsync(e => e.Id == id && e.UserProfileId == profileId);
     if (suggestion == null) return Results.NotFound();
     var log = suggestion.AiPromptLog;
     db.ExerciseSuggestions.Remove(suggestion);
@@ -263,22 +386,25 @@ app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, int id) 
 });
 
 // ─── MEALS ────────────────────────────────────────────────────────────────────
-app.MapGet("/api/meals/today", async (AppDbContext db) =>
+app.MapGet("/api/meals/today", async (AppDbContext db, HttpContext ctx) =>
 {
+    var profileId = GetProfileId(ctx);
     var today = DateTime.UtcNow.Date;
     return Results.Ok(await db.MealLogs
-        .Where(m => m.Date >= today && m.Date < today.AddDays(1))
+        .Where(m => m.UserProfileId == profileId && m.Date >= today && m.Date < today.AddDays(1))
         .OrderBy(m => m.Date)
         .ToListAsync());
 });
 
-app.MapPost("/api/meals", async (AppDbContext db, MealLogRequest req) =>
+app.MapPost("/api/meals", async (AppDbContext db, HttpContext ctx, MealLogRequest req) =>
 {
     if (string.IsNullOrWhiteSpace(req.MealType) || string.IsNullOrWhiteSpace(req.Description))
         return Results.BadRequest("MealType and Description are required.");
 
+    var profileId = GetProfileId(ctx);
     var meal = new MealLog
     {
+        UserProfileId = profileId,
         Date = DateTime.UtcNow,
         MealType = req.MealType,
         Description = req.Description,
@@ -290,17 +416,18 @@ app.MapPost("/api/meals", async (AppDbContext db, MealLogRequest req) =>
     return Results.Ok(meal);
 });
 
-app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    var profileId = GetProfileId(ctx);
     var meal = await db.MealLogs.FindAsync(id);
-    if (meal == null) return Results.NotFound();
+    if (meal == null || meal.UserProfileId != profileId) return Results.NotFound();
     db.MealLogs.Remove(meal);
     await db.SaveChangesAsync();
     return Results.Ok();
 });
 
 app.MapPost("/api/meals/advice", async (
-    MealService mealSvc, GeminiService gemini, MealAdviceRequest req) =>
+    MealService mealSvc, GeminiService gemini, HttpContext ctx, MealAdviceRequest req) =>
 {
     if (!gemini.IsConfigured)
         return Results.Problem("Gemini API key not configured.", statusCode: 503);
@@ -308,7 +435,8 @@ app.MapPost("/api/meals/advice", async (
         return Results.BadRequest("Question is required.");
     try
     {
-        var result = await mealSvc.GetNutritionAdviceAsync(req.Question);
+        var profileId = GetProfileId(ctx);
+        var result = await mealSvc.GetNutritionAdviceAsync(req.Question, profileId);
         return Results.Ok(new
         {
             advice = result.Text,
@@ -320,17 +448,20 @@ app.MapPost("/api/meals/advice", async (
 });
 
 // ─── AI HISTORY ───────────────────────────────────────────────────────────────
-app.MapGet("/api/ai-history", async (AppDbContext db, string? type) =>
+app.MapGet("/api/ai-history", async (AppDbContext db, HttpContext ctx, string? type) =>
 {
-    var query = db.AiPromptLogs.AsQueryable();
+    var profileId = GetProfileId(ctx);
+    var query = db.AiPromptLogs
+        .Where(l => l.UserProfileId == profileId);
     if (!string.IsNullOrWhiteSpace(type)) query = query.Where(l => l.PromptType == type);
     return Results.Ok(await query.OrderByDescending(l => l.CreatedAt).ToListAsync());
 });
 
-app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, int id) =>
+app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    var profileId = GetProfileId(ctx);
     var log = await db.AiPromptLogs.FindAsync(id);
-    if (log == null) return Results.NotFound();
+    if (log == null || log.UserProfileId != profileId) return Results.NotFound();
     var linked = await db.ExerciseSuggestions.AnyAsync(e => e.AiPromptLogId == id);
     if (linked)
         return Results.Conflict(
@@ -348,3 +479,5 @@ record ScheduleUpdateItem(int DayOfWeek, string Location);
 record GenerateDayRequest(int DayOfWeek);
 record MealLogRequest(string MealType, string Description, int? Calories, string? Notes);
 record MealAdviceRequest(string Question);
+record ProfileRequest(string Name, double StartingWeight, double GoalWeight,
+    DateTime StartDate, string? FitnessLevel, string? Injuries, string? Goals);

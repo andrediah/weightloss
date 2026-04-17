@@ -3,6 +3,7 @@ namespace WeightLossTracker.Models;
 public class UserProfile
 {
     public int Id { get; set; }
+    public string Name { get; set; } = "";
     public double StartingWeight { get; set; }
     public double GoalWeight { get; set; }
     public DateTime StartDate { get; set; }
@@ -14,6 +15,8 @@ public class UserProfile
 public class WeightEntry
 {
     public int Id { get; set; }
+    public int UserProfileId { get; set; }
+    public UserProfile? UserProfile { get; set; }
     public DateTime Date { get; set; }
     public double Weight { get; set; }
     public string? Notes { get; set; }
@@ -22,6 +25,8 @@ public class WeightEntry
 public class MealLog
 {
     public int Id { get; set; }
+    public int UserProfileId { get; set; }
+    public UserProfile? UserProfile { get; set; }
     public DateTime Date { get; set; }
     public string MealType { get; set; } = "";
     public string Description { get; set; } = "";
@@ -32,6 +37,8 @@ public class MealLog
 public class WorkoutScheduleDay
 {
     public int Id { get; set; }
+    public int UserProfileId { get; set; }
+    public UserProfile? UserProfile { get; set; }
     public int DayOfWeek { get; set; }
     public string Location { get; set; } = "Rest";
 }
@@ -39,6 +46,8 @@ public class WorkoutScheduleDay
 public class ExerciseSuggestion
 {
     public int Id { get; set; }
+    public int UserProfileId { get; set; }
+    public UserProfile? UserProfile { get; set; }
     public DateTime CreatedAt { get; set; }
     public int? DayOfWeek { get; set; }
     public string Location { get; set; } = "";
@@ -51,6 +60,8 @@ public class ExerciseSuggestion
 public class AiPromptLog
 {
     public int Id { get; set; }
+    public int UserProfileId { get; set; }
+    public UserProfile? UserProfile { get; set; }
     public DateTime CreatedAt { get; set; }
     public string PromptType { get; set; } = "";
     public string Prompt { get; set; } = "";

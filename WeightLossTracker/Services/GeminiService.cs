@@ -27,15 +27,15 @@ public class GeminiService(
 
     /// <summary>Generates content and returns the result. Log ID is discarded.</summary>
     public async Task<GeminiResult> GenerateAsync(
-        string prompt, string promptType, CancellationToken ct = default)
+        string prompt, string promptType, int userProfileId, CancellationToken ct = default)
     {
-        var (result, _) = await GenerateWithLogIdAsync(prompt, promptType, ct).ConfigureAwait(false);
+        var (result, _) = await GenerateWithLogIdAsync(prompt, promptType, userProfileId, ct).ConfigureAwait(false);
         return result;
     }
 
     /// <summary>Generates content, persists the AI prompt log, and returns both the result and log ID.</summary>
     public async Task<(GeminiResult Result, int LogId)> GenerateWithLogIdAsync(
-        string prompt, string promptType, CancellationToken ct = default)
+        string prompt, string promptType, int userProfileId, CancellationToken ct = default)
     {
         if (!IsConfigured)
             throw new GeminiApiException("Gemini API key not configured.");
@@ -46,6 +46,7 @@ public class GeminiService(
         var log = new AiPromptLog
         {
             CreatedAt = DateTime.UtcNow,
+            UserProfileId = userProfileId,
             PromptType = promptType,
             Prompt = prompt,
             Response = text,
