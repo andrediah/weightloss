@@ -3,6 +3,8 @@ namespace WeightLossTracker.Models;
 public class UserProfile
 {
     public int Id { get; set; }
+    public int UserId { get; set; }
+    public User? User { get; set; }
     public string Name { get; set; } = "";
     public double StartingWeight { get; set; }
     public double GoalWeight { get; set; }
