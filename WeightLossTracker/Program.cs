@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using WeightLossTracker.Data;
 using WeightLossTracker.Models;
 using WeightLossTracker.Services;
@@ -16,6 +18,26 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite($"Data Source={
 
 // ─── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddWeightLossTrackerServices(builder.Configuration);
+
+// ─── Authentication ───────────────────────────────────────────────────────────
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(opt =>
+    {
+        opt.Cookie.HttpOnly = true;
+        opt.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        opt.Cookie.SameSite = SameSiteMode.Strict;
+        opt.ExpireTimeSpan = TimeSpan.FromDays(14);
+        opt.SlidingExpiration = true;
+        opt.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = ctx =>
+            {
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            }
+        };
+    });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -74,6 +96,8 @@ if (string.IsNullOrWhiteSpace(apiKey))
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // ─── Helper: extract active profile ID from X-Profile-Id header ──────────────
 static int GetProfileId(HttpContext ctx) =>
