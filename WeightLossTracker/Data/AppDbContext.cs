@@ -20,7 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(u => u.Username)
             .IsUnique();
 
-        // User -> UserProfile 1:1
+        // User -> UserProfile 1:1 (User has no inverse navigation — profile is looked up by UserId)
         modelBuilder.Entity<UserProfile>()
             .HasOne(p => p.User)
             .WithOne()
