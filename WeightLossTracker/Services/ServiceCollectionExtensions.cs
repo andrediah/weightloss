@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GeminiService>();
         services.AddScoped<ExerciseService>();
         services.AddScoped<MealService>();
+        services.AddSingleton<AuthService>();
 
         return services;
     }
