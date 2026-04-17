@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="WeightLossTracker.Tests/WeightLossTracker.Tests.csproj" />
+  <Project Path="WeightLossTracker/WeightLossTracker.csproj" />
+</Solution>
