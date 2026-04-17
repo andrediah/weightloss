@@ -24,15 +24,22 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     .AddCookie(opt =>
     {
         opt.Cookie.HttpOnly = true;
-        opt.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        opt.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
         opt.Cookie.SameSite = SameSiteMode.Strict;
-        opt.ExpireTimeSpan = TimeSpan.FromDays(14);
+        opt.ExpireTimeSpan = TimeSpan.FromHours(8);
         opt.SlidingExpiration = true;
         opt.Events = new CookieAuthenticationEvents
         {
             OnRedirectToLogin = ctx =>
             {
                 ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = ctx =>
+            {
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                 return Task.CompletedTask;
             }
         };
