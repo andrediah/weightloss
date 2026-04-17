@@ -108,12 +108,13 @@ app.UseAuthorization();
 
 // ─── Helper: extract active profile ID from X-Profile-Id header ──────────────
 static int GetProfileId(HttpContext ctx) =>
-    int.TryParse(ctx.Request.Headers["X-Profile-Id"].FirstOrDefault(), out var id) && id > 0
-        ? id : 1;
+    int.TryParse(
+        ctx.User.FindFirst("profileId")?.Value,
+        out var id) && id > 0 ? id : 0;
 
 // ─── PROFILES ─────────────────────────────────────────────────────────────────
 app.MapGet("/api/profiles", async (AppDbContext db) =>
-    Results.Ok(await db.UserProfiles.OrderBy(p => p.Id).ToListAsync()));
+    Results.Ok(await db.UserProfiles.OrderBy(p => p.Id).ToListAsync())).RequireAuthorization();
 
 app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
 {
@@ -146,13 +147,13 @@ app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
     await db.SaveChangesAsync();
 
     return Results.Ok(profile);
-});
+}).RequireAuthorization();
 
 app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
 {
     var profile = await db.UserProfiles.FindAsync(id);
     return profile is null ? Results.NotFound() : Results.Ok(profile);
-});
+}).RequireAuthorization();
 
 app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequest req) =>
 {
@@ -171,7 +172,7 @@ app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequ
     profile.Goals = req.Goals ?? "";
     await db.SaveChangesAsync();
     return Results.Ok(profile);
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
 {
@@ -191,7 +192,7 @@ app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
     db.UserProfiles.Remove(profile);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
@@ -252,7 +253,7 @@ app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
         goalWeight = target,
         chart = new { labels, weights, trendLine }
     });
-});
+}).RequireAuthorization();
 
 // ─── WEIGHT ───────────────────────────────────────────────────────────────────
 app.MapGet("/api/weight", async (AppDbContext db, HttpContext ctx) =>
@@ -262,7 +263,7 @@ app.MapGet("/api/weight", async (AppDbContext db, HttpContext ctx) =>
         .Where(w => w.UserProfileId == profileId)
         .OrderByDescending(w => w.Date)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/weight", async (AppDbContext db, HttpContext ctx, WeightEntryRequest req) =>
 {
@@ -291,7 +292,7 @@ app.MapPost("/api/weight", async (AppDbContext db, HttpContext ctx, WeightEntryR
     db.WeightEntries.Add(entry);
     await db.SaveChangesAsync();
     return Results.Ok(entry);
-});
+}).RequireAuthorization();
 
 app.MapPut("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int id, WeightEntryRequest req) =>
 {
@@ -305,7 +306,7 @@ app.MapPut("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int 
     entry.Notes = req.Notes;
     await db.SaveChangesAsync();
     return Results.Ok(entry);
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -315,7 +316,7 @@ app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, i
     db.WeightEntries.Remove(entry);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 // ─── SCHEDULE ─────────────────────────────────────────────────────────────────
 app.MapGet("/api/schedule", async (AppDbContext db, HttpContext ctx) =>
@@ -325,7 +326,7 @@ app.MapGet("/api/schedule", async (AppDbContext db, HttpContext ctx) =>
         .Where(s => s.UserProfileId == profileId)
         .OrderBy(s => s.DayOfWeek)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapPut("/api/schedule", async (AppDbContext db, HttpContext ctx, List<ScheduleUpdateItem> items) =>
 {
@@ -341,7 +342,7 @@ app.MapPut("/api/schedule", async (AppDbContext db, HttpContext ctx, List<Schedu
         .Where(s => s.UserProfileId == profileId)
         .OrderBy(s => s.DayOfWeek)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 // ─── EXERCISE ─────────────────────────────────────────────────────────────────
 app.MapPost("/api/exercise/generate-day", async (
@@ -359,7 +360,7 @@ app.MapPost("/api/exercise/generate-day", async (
     }
     catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
     catch (GeminiApiException ex) { return Results.Problem(ex.Message, statusCode: 502); }
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/exercise/generate-week", async (
     ExerciseService svc, GeminiService gemini, HttpContext ctx, HttpResponse response) =>
@@ -391,7 +392,7 @@ app.MapPost("/api/exercise/generate-week", async (
         });
     }
     await response.WriteAsJsonAsync(results);
-});
+}).RequireAuthorization();
 
 app.MapGet("/api/exercise/history", async (AppDbContext db, HttpContext ctx, int? dayOfWeek) =>
 {
@@ -400,7 +401,7 @@ app.MapGet("/api/exercise/history", async (AppDbContext db, HttpContext ctx, int
         .Where(e => e.UserProfileId == profileId);
     if (dayOfWeek.HasValue) query = query.Where(e => e.DayOfWeek == dayOfWeek.Value);
     return Results.Ok(await query.OrderByDescending(e => e.CreatedAt).ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -414,7 +415,7 @@ app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, HttpCont
     if (log != null) db.AiPromptLogs.Remove(log);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 // ─── MEALS ────────────────────────────────────────────────────────────────────
 app.MapGet("/api/meals/today", async (AppDbContext db, HttpContext ctx) =>
@@ -425,7 +426,7 @@ app.MapGet("/api/meals/today", async (AppDbContext db, HttpContext ctx) =>
         .Where(m => m.UserProfileId == profileId && m.Date >= today && m.Date < today.AddDays(1))
         .OrderBy(m => m.Date)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/meals", async (AppDbContext db, HttpContext ctx, MealLogRequest req) =>
 {
@@ -445,7 +446,7 @@ app.MapPost("/api/meals", async (AppDbContext db, HttpContext ctx, MealLogReques
     db.MealLogs.Add(meal);
     await db.SaveChangesAsync();
     return Results.Ok(meal);
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -455,7 +456,7 @@ app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, HttpContext ctx, in
     db.MealLogs.Remove(meal);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/meals/advice", async (
     MealService mealSvc, GeminiService gemini, HttpContext ctx, MealAdviceRequest req) =>
@@ -476,7 +477,7 @@ app.MapPost("/api/meals/advice", async (
         });
     }
     catch (GeminiApiException ex) { return Results.Problem(ex.Message, statusCode: 502); }
-});
+}).RequireAuthorization();
 
 // ─── AI HISTORY ───────────────────────────────────────────────────────────────
 app.MapGet("/api/ai-history", async (AppDbContext db, HttpContext ctx, string? type) =>
@@ -486,7 +487,7 @@ app.MapGet("/api/ai-history", async (AppDbContext db, HttpContext ctx, string? t
         .Where(l => l.UserProfileId == profileId);
     if (!string.IsNullOrWhiteSpace(type)) query = query.Where(l => l.PromptType == type);
     return Results.Ok(await query.OrderByDescending(l => l.CreatedAt).ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -500,7 +501,7 @@ app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, HttpContext ct
     db.AiPromptLogs.Remove(log);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 app.Run("http://localhost:5000");
 
