@@ -103,9 +103,6 @@ namespace WeightLossTracker.Migrations
                 name: "FK_UserProfiles_Users_UserId",
                 table: "UserProfiles");
 
-            migrationBuilder.DropTable(
-                name: "Users");
-
             migrationBuilder.DropIndex(
                 name: "IX_UserProfiles_UserId",
                 table: "UserProfiles");
@@ -113,6 +110,9 @@ namespace WeightLossTracker.Migrations
             migrationBuilder.DropColumn(
                 name: "UserId",
                 table: "UserProfiles");
+
+            migrationBuilder.DropTable(
+                name: "Users");
 
             migrationBuilder.InsertData(
                 table: "UserProfiles",
