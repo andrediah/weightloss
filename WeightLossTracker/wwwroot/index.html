@@ -18,18 +18,27 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    /* ─── Design tokens (ux-standards.md) ─────────────────────────────────── */
+    /* ─── Design tokens — Warm & Motivational (ux-redesign-v2 spec) ─── */
     :root {
-      --color-surface-primary:   #FFFFFF;
-      --color-surface-secondary: #F5F5F5;
-      --color-text-primary:      #1A1A1A;
-      --color-text-secondary:    #404040;
-      --color-text-disabled:     #6C6C6C;
-      --color-border-default:    #D4D4D4;
-      --color-border-focus:      #0066CC;
-      --color-feedback-error:    #B71C1C;
-      --color-feedback-success:  #155724;
-      --color-feedback-warning:  #8A6D00;
+      /* Base — warm off-white (never changes regardless of accent) */
+      --color-surface-primary:   #fffbf0;
+      --color-surface-secondary: #fff8ed;
+      --color-text-primary:      #1c0800;
+      --color-text-secondary:    #92400e;
+      --color-text-disabled:     #c4a86a;
+      --color-border-default:    #fde68a;
+      --color-border-focus:      #d97706;
+      --color-feedback-error:    #b91c1c;
+      --color-feedback-success:  #15803d;
+      --color-feedback-warning:  #b45309;
+
+      /* Accent — Amber default; overridden by applyAccent() */
+      --color-accent:      #f59e0b;
+      --color-accent-dark: #d97706;
+
+      /* Secondary accent — always violet */
+      --color-accent2:      #a78bfa;
+      --color-accent2-dark: #7c3aed;
 
       --spacing-xs:  4px;
       --spacing-sm:  8px;
@@ -44,50 +53,54 @@
       --radius-full: 9999px;
     }
 
+    /* Warm dark mode — brown-black base, amber preserved */
     @media (prefers-color-scheme: dark) {
       :root {
-        --color-surface-primary:   #121212;
-        --color-surface-secondary: #1E1E1E;
-        --color-text-primary:      #FAFAFA;
-        --color-text-secondary:    #C7C7C7;
-        --color-text-disabled:     #757575;
-        --color-border-default:    #383838;
-        --color-border-focus:      #60A0FF;
-        --color-feedback-error:    #EF9A9A;
-        --color-feedback-success:  #A5D6A7;
-        --color-feedback-warning:  #FFE082;
+        --color-surface-primary:   #1c1008;
+        --color-surface-secondary: #2a1a0a;
+        --color-text-primary:      #fef3c7;
+        --color-text-secondary:    #fde68a;
+        --color-text-disabled:     #a08040;
+        --color-border-default:    #3d2008;
+        --color-border-focus:      #fbbf24;
+        --color-feedback-error:    #fca5a5;
+        --color-feedback-success:  #86efac;
+        --color-feedback-warning:  #fde047;
       }
     }
 
     [data-theme="dark"] {
-      --color-surface-primary:   #121212;
-      --color-surface-secondary: #1E1E1E;
-      --color-text-primary:      #FAFAFA;
-      --color-text-secondary:    #C7C7C7;
-      --color-text-disabled:     #757575;
-      --color-border-default:    #383838;
-      --color-border-focus:      #60A0FF;
-      --color-feedback-error:    #EF9A9A;
-      --color-feedback-success:  #A5D6A7;
-      --color-feedback-warning:  #FFE082;
+      --color-surface-primary:   #1c1008;
+      --color-surface-secondary: #2a1a0a;
+      --color-text-primary:      #fef3c7;
+      --color-text-secondary:    #fde68a;
+      --color-text-disabled:     #a08040;
+      --color-border-default:    #3d2008;
+      --color-border-focus:      #fbbf24;
+      --color-feedback-error:    #fca5a5;
+      --color-feedback-success:  #86efac;
+      --color-feedback-warning:  #fde047;
     }
 
     [data-theme="light"] {
-      --color-surface-primary:   #FFFFFF;
-      --color-surface-secondary: #F5F5F5;
-      --color-text-primary:      #1A1A1A;
-      --color-text-secondary:    #404040;
-      --color-text-disabled:     #6C6C6C;
-      --color-border-default:    #D4D4D4;
-      --color-border-focus:      #0066CC;
-      --color-feedback-error:    #B71C1C;
-      --color-feedback-success:  #155724;
-      --color-feedback-warning:  #8A6D00;
+      --color-surface-primary:   #fffbf0;
+      --color-surface-secondary: #fff8ed;
+      --color-text-primary:      #1c0800;
+      --color-text-secondary:    #92400e;
+      --color-text-disabled:     #c4a86a;
+      --color-border-default:    #fde68a;
+      --color-border-focus:      #d97706;
+      --color-feedback-error:    #b91c1c;
+      --color-feedback-success:  #15803d;
+      --color-feedback-warning:  #b45309;
     }
 
-    /* ─── Mobile bottom-tab active state ──────────────────────────────────── */
+    /* ─── Mobile bottom-tab active state ─── */
     [data-mobile-nav] { border-top: 2px solid transparent; }
-    [data-mobile-nav].mobile-tab-active { border-top-color: #a5b4fc; color: #ffffff; }
+    [data-mobile-nav].mobile-tab-active {
+      border-top-color: var(--color-accent);
+      color: var(--color-accent);
+    }
 
     /* ─── Reduced motion ───────────────────────────────────────────────────── */
     @media (prefers-reduced-motion: reduce) {
@@ -106,10 +119,10 @@
 
     /* ─── Scrollbar ────────────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    .dark ::-webkit-scrollbar-track { background: #1e293b; }
-    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    ::-webkit-scrollbar-track { background: #fff8ed; }
+    ::-webkit-scrollbar-thumb { background: #fde68a; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-track { background: #2a1a0a; }
+    .dark ::-webkit-scrollbar-thumb { background: #3d2008; }
 
     /* ─── Prose (markdown renderer output) ────────────────────────────────── */
     .prose ul { list-style: disc; padding-left: 1.25rem; }
@@ -120,7 +133,7 @@
     .dark .prose h2 { color: #818cf8; }
   </style>
 </head>
-<body class="h-full bg-gray-100 dark:bg-gray-900 flex flex-col md:flex-row transition-colors duration-200">
+<body class="h-full flex flex-col md:flex-row transition-colors duration-200" style="background-color: var(--color-surface-primary); color: var(--color-text-primary);">
 
   <!-- Skip navigation (accessibility) -->
   <a href="#main-content"
