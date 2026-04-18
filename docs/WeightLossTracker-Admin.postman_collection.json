@@ -1,0 +1,109 @@
+{
+  "info": {
+    "name": "WeightLossTracker Admin API",
+    "description": "Admin API endpoints for WeightLossTracker. Requires X-Admin-Key header matching the configured Admin:ApiKey value.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7001",
+      "type": "string"
+    },
+    {
+      "key": "adminKey",
+      "value": "",
+      "type": "string",
+      "description": "Plaintext value of Admin:ApiKey from appsettings"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Admin-Key",
+            "value": "{{adminKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "admin", "users"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"S3cur3P@ssword!\",\n  \"profile\": {\n    \"name\": \"Test User\",\n    \"startingWeight\": 215.0,\n    \"goalWeight\": 190.0,\n    \"startDate\": \"2026-01-01T00:00:00Z\",\n    \"fitnessLevel\": \"Beginner\",\n    \"injuries\": \"Lower back, neck\",\n    \"goals\": \"Lose 25 lbs\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Creates a new user with profile and default 7-day workout schedule (all days initialized to 'Rest'). Runs in a single DB transaction.\n\n**Auth:** X-Admin-Key header (SHA-256 hashed internally and compared against stored hash using constant-time equality).\n\n**Responses:**\n- 200 OK — user created\n- 400 Bad Request — missing/invalid fields or password > 1000 chars\n- 403 Forbidden — invalid or missing admin key\n- 409 Conflict — username already taken"
+      },
+      "response": [
+        {
+          "name": "200 OK — User Created",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": "{\n  \"userId\": 1,\n  \"profileId\": 1,\n  \"username\": \"testuser\"\n}"
+        },
+        {
+          "name": "400 Bad Request — Missing fields",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [
+            { "key": "Content-Type", "value": "text/plain" }
+          ],
+          "body": "Username and password are required."
+        },
+        {
+          "name": "400 Bad Request — Password too long",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [
+            { "key": "Content-Type", "value": "text/plain" }
+          ],
+          "body": "Password is too long."
+        },
+        {
+          "name": "400 Bad Request — Missing profile name",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [
+            { "key": "Content-Type", "value": "text/plain" }
+          ],
+          "body": "Profile name is required."
+        },
+        {
+          "name": "403 Forbidden — Invalid admin key",
+          "status": "Forbidden",
+          "code": 403,
+          "header": [
+            { "key": "Content-Type", "value": "text/plain" }
+          ],
+          "body": "Forbidden."
+        },
+        {
+          "name": "409 Conflict — Username taken",
+          "status": "Conflict",
+          "code": 409,
+          "header": [
+            { "key": "Content-Type", "value": "text/plain" }
+          ],
+          "body": "Username already taken."
+        }
+      ]
+    }
+  ]
+}

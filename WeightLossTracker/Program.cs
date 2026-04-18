@@ -1,5 +1,10 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using WeightLossTracker.Data;
 using WeightLossTracker.Models;
 using WeightLossTracker.Services;
@@ -16,6 +21,33 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite($"Data Source={
 
 // ─── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddWeightLossTrackerServices(builder.Configuration);
+
+// ─── Authentication ───────────────────────────────────────────────────────────
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(opt =>
+    {
+        opt.Cookie.HttpOnly = true;
+        opt.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        opt.Cookie.SameSite = SameSiteMode.Strict;
+        opt.ExpireTimeSpan = TimeSpan.FromHours(8);
+        opt.SlidingExpiration = true;
+        opt.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = ctx =>
+            {
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = ctx =>
+            {
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+        };
+    });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -72,59 +104,198 @@ if (string.IsNullOrWhiteSpace(apiKey))
     app.Logger.LogWarning(
         "Gemini:ApiKey is not configured. AI features will be unavailable (degraded mode).");
 
+var adminKey = app.Configuration["Admin:ApiKey"];
+if (string.IsNullOrWhiteSpace(adminKey))
+    app.Logger.LogWarning("Admin:ApiKey is not configured. The /api/admin/users endpoint will reject all requests.");
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 
-// ─── Helper: extract active profile ID from X-Profile-Id header ──────────────
-static int GetProfileId(HttpContext ctx) =>
-    int.TryParse(ctx.Request.Headers["X-Profile-Id"].FirstOrDefault(), out var id) && id > 0
-        ? id : 1;
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+app.MapPost("/api/auth/login", async (
+    AppDbContext db, IAuthService auth, HttpContext ctx, LoginRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest("Username and password are required.");
+
+    if (req.Password.Length > 1000)
+        return Results.BadRequest("Password too long.");
+
+    var user = await db.Users
+        .FirstOrDefaultAsync(u => u.Username == req.Username.Trim().ToLower());
+
+    // Dummy hash (work factor 12) — prevents timing oracle on unknown usernames. Regenerate if WorkFactor changes.
+    var hashToCheck = user?.PasswordHash ?? "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/bkiZ7hD3hZJOX6K3i";
+    var passwordValid = auth.VerifyPassword(req.Password, hashToCheck);
+
+    if (user is null || !passwordValid)
+        return Results.Unauthorized();
+
+    var profile = await db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id);
+    if (profile is null)
+        return Results.Unauthorized();
+
+    var claims = new List<Claim>
+    {
+        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new(ClaimTypes.Name, user.Username),
+        new("profileId", profile.Id.ToString()),
+    };
+    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignInAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        new ClaimsPrincipal(identity));
+
+    return Results.Ok(new { username = user.Username, profileId = profile.Id });
+});
+
+app.MapPost("/api/auth/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Ok();
+});
+
+app.MapGet("/api/auth/me", async (AppDbContext db, HttpContext ctx) =>
+{
+    if (!(ctx.User.Identity?.IsAuthenticated ?? false))
+        return Results.Unauthorized();
+
+    var username = ctx.User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    var profileIdClaim = ctx.User.FindFirst("profileId")?.Value;
+    if (!int.TryParse(profileIdClaim, out var profileId) || profileId <= 0)
+        return Results.Unauthorized();
+
+    var profile = await db.UserProfiles.FindAsync(profileId);
+    if (profile is null) return Results.Unauthorized();
+
+    return Results.Ok(new
+    {
+        username,
+        profileId,
+        profile = new
+        {
+            profile.Id,
+            profile.Name,
+            profile.StartingWeight,
+            profile.GoalWeight,
+            profile.StartDate,
+            profile.FitnessLevel,
+            profile.Injuries,
+            profile.Goals
+        }
+    });
+}).AllowAnonymous();
+
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+app.MapPost("/api/admin/users", async (
+    AppDbContext db, IAuthService auth, IConfiguration config,
+    HttpContext ctx, CreateUserRequest req) =>
+{
+    var expectedKey = config["Admin:ApiKey"] ?? "";
+    var providedKey = ctx.Request.Headers["X-Admin-Key"].FirstOrDefault() ?? "";
+
+    var expectedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(expectedKey));
+    var providedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(providedKey));
+    bool keyValid = CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes);
+
+    if (string.IsNullOrWhiteSpace(expectedKey) || !keyValid)
+        return Results.Forbid();
+
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest("Username and password are required.");
+
+    if (req.Password.Length > 1000)
+        return Results.BadRequest("Password too long.");
+
+    if (string.IsNullOrWhiteSpace(req.Profile.Name))
+        return Results.BadRequest("Profile name is required.");
+
+    var normalizedUsername = req.Username.Trim().ToLower();
+    var user = new User
+    {
+        Username = normalizedUsername,
+        PasswordHash = auth.HashPassword(req.Password),
+        CreatedAt = DateTime.UtcNow
+    };
+
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    try
+    {
+        db.Users.Add(user);
+        await db.SaveChangesAsync(); // user.Id populated here
+
+        var profile = new UserProfile
+        {
+            UserId = user.Id,
+            Name = req.Profile.Name.Trim(),
+            StartingWeight = req.Profile.StartingWeight,
+            GoalWeight = req.Profile.GoalWeight,
+            StartDate = req.Profile.StartDate,
+            FitnessLevel = req.Profile.FitnessLevel ?? "",
+            Injuries = req.Profile.Injuries ?? "",
+            Goals = req.Profile.Goals ?? ""
+        };
+        db.UserProfiles.Add(profile);
+        await db.SaveChangesAsync(); // profile.Id populated here
+
+        for (int dow = 0; dow <= 6; dow++)
+        {
+            db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
+            {
+                UserProfileId = profile.Id,
+                DayOfWeek = dow,
+                Location = "Rest"
+            });
+        }
+        await db.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+        return Results.Ok(new { userId = user.Id, profileId = profile.Id, username = user.Username });
+    }
+    catch (DbUpdateException ex)
+        when (ex.InnerException is SqliteException sqEx
+              && sqEx.SqliteErrorCode == 19
+              && sqEx.Message.Contains("Users.Username"))
+    {
+        await transaction.RollbackAsync();
+        return Results.Conflict("Username already taken.");
+    }
+    catch
+    {
+        await transaction.RollbackAsync();
+        throw;
+    }
+});
+
+// ─── Helper: extract active profile ID from the authenticated user's claims ───
+static int GetProfileId(HttpContext ctx)
+{
+    var value = ctx.User.FindFirst("profileId")?.Value;
+    if (int.TryParse(value, out var id) && id > 0) return id;
+    throw new InvalidOperationException("Authenticated user has no valid profileId claim.");
+}
 
 // ─── PROFILES ─────────────────────────────────────────────────────────────────
-app.MapGet("/api/profiles", async (AppDbContext db) =>
-    Results.Ok(await db.UserProfiles.OrderBy(p => p.Id).ToListAsync()));
-
-app.MapPost("/api/profiles", async (AppDbContext db, ProfileRequest req) =>
+app.MapGet("/api/profiles", async (AppDbContext db, HttpContext ctx) =>
 {
-    if (string.IsNullOrWhiteSpace(req.Name))
-        return Results.BadRequest("Name is required.");
+    var profileId = GetProfileId(ctx);
+    var profile = await db.UserProfiles.FindAsync(profileId);
+    return profile is null ? Results.NotFound() : Results.Ok(profile);
+}).RequireAuthorization();
 
-    var profile = new UserProfile
-    {
-        Name = req.Name.Trim(),
-        StartingWeight = req.StartingWeight,
-        GoalWeight = req.GoalWeight,
-        StartDate = req.StartDate,
-        FitnessLevel = req.FitnessLevel ?? "",
-        Injuries = req.Injuries ?? "",
-        Goals = req.Goals ?? ""
-    };
-    db.UserProfiles.Add(profile);
-    await db.SaveChangesAsync();
 
-    // Create 7 default WorkoutScheduleDays (all Rest)
-    for (int dow = 0; dow <= 6; dow++)
-    {
-        db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
-        {
-            UserProfileId = profile.Id,
-            DayOfWeek = dow,
-            Location = "Rest"
-        });
-    }
-    await db.SaveChangesAsync();
-
-    return Results.Ok(profile);
-});
-
-app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
+app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
+    if (id != GetProfileId(ctx)) return Results.Forbid();
     var profile = await db.UserProfiles.FindAsync(id);
     return profile is null ? Results.NotFound() : Results.Ok(profile);
-});
+}).RequireAuthorization();
 
-app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequest req) =>
+app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id, ProfileRequest req) =>
 {
+    if (id != GetProfileId(ctx)) return Results.Forbid();
     var profile = await db.UserProfiles.FindAsync(id);
     if (profile is null) return Results.NotFound();
 
@@ -140,27 +311,8 @@ app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, int id, ProfileRequ
     profile.Goals = req.Goals ?? "";
     await db.SaveChangesAsync();
     return Results.Ok(profile);
-});
+}).RequireAuthorization();
 
-app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, int id) =>
-{
-    var count = await db.UserProfiles.CountAsync();
-    if (count <= 1) return Results.BadRequest("Cannot delete the last profile.");
-
-    var profile = await db.UserProfiles.FindAsync(id);
-    if (profile is null) return Results.NotFound();
-
-    // Manually remove ExerciseSuggestions first (they have Restrict FK to AiPromptLog)
-    var exercises = await db.ExerciseSuggestions
-        .Where(e => e.UserProfileId == id)
-        .ToListAsync();
-    db.ExerciseSuggestions.RemoveRange(exercises);
-    await db.SaveChangesAsync();
-
-    db.UserProfiles.Remove(profile);
-    await db.SaveChangesAsync();
-    return Results.Ok();
-});
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
@@ -221,7 +373,7 @@ app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
         goalWeight = target,
         chart = new { labels, weights, trendLine }
     });
-});
+}).RequireAuthorization();
 
 // ─── WEIGHT ───────────────────────────────────────────────────────────────────
 app.MapGet("/api/weight", async (AppDbContext db, HttpContext ctx) =>
@@ -231,7 +383,7 @@ app.MapGet("/api/weight", async (AppDbContext db, HttpContext ctx) =>
         .Where(w => w.UserProfileId == profileId)
         .OrderByDescending(w => w.Date)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/weight", async (AppDbContext db, HttpContext ctx, WeightEntryRequest req) =>
 {
@@ -260,7 +412,7 @@ app.MapPost("/api/weight", async (AppDbContext db, HttpContext ctx, WeightEntryR
     db.WeightEntries.Add(entry);
     await db.SaveChangesAsync();
     return Results.Ok(entry);
-});
+}).RequireAuthorization();
 
 app.MapPut("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int id, WeightEntryRequest req) =>
 {
@@ -274,7 +426,7 @@ app.MapPut("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int 
     entry.Notes = req.Notes;
     await db.SaveChangesAsync();
     return Results.Ok(entry);
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -284,7 +436,7 @@ app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, i
     db.WeightEntries.Remove(entry);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 // ─── SCHEDULE ─────────────────────────────────────────────────────────────────
 app.MapGet("/api/schedule", async (AppDbContext db, HttpContext ctx) =>
@@ -294,7 +446,7 @@ app.MapGet("/api/schedule", async (AppDbContext db, HttpContext ctx) =>
         .Where(s => s.UserProfileId == profileId)
         .OrderBy(s => s.DayOfWeek)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapPut("/api/schedule", async (AppDbContext db, HttpContext ctx, List<ScheduleUpdateItem> items) =>
 {
@@ -310,7 +462,7 @@ app.MapPut("/api/schedule", async (AppDbContext db, HttpContext ctx, List<Schedu
         .Where(s => s.UserProfileId == profileId)
         .OrderBy(s => s.DayOfWeek)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 // ─── EXERCISE ─────────────────────────────────────────────────────────────────
 app.MapPost("/api/exercise/generate-day", async (
@@ -328,7 +480,7 @@ app.MapPost("/api/exercise/generate-day", async (
     }
     catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
     catch (GeminiApiException ex) { return Results.Problem(ex.Message, statusCode: 502); }
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/exercise/generate-week", async (
     ExerciseService svc, GeminiService gemini, HttpContext ctx, HttpResponse response) =>
@@ -360,7 +512,7 @@ app.MapPost("/api/exercise/generate-week", async (
         });
     }
     await response.WriteAsJsonAsync(results);
-});
+}).RequireAuthorization();
 
 app.MapGet("/api/exercise/history", async (AppDbContext db, HttpContext ctx, int? dayOfWeek) =>
 {
@@ -369,7 +521,7 @@ app.MapGet("/api/exercise/history", async (AppDbContext db, HttpContext ctx, int
         .Where(e => e.UserProfileId == profileId);
     if (dayOfWeek.HasValue) query = query.Where(e => e.DayOfWeek == dayOfWeek.Value);
     return Results.Ok(await query.OrderByDescending(e => e.CreatedAt).ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -383,7 +535,7 @@ app.MapDelete("/api/exercise/history/{id:int}", async (AppDbContext db, HttpCont
     if (log != null) db.AiPromptLogs.Remove(log);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 // ─── MEALS ────────────────────────────────────────────────────────────────────
 app.MapGet("/api/meals/today", async (AppDbContext db, HttpContext ctx) =>
@@ -394,7 +546,7 @@ app.MapGet("/api/meals/today", async (AppDbContext db, HttpContext ctx) =>
         .Where(m => m.UserProfileId == profileId && m.Date >= today && m.Date < today.AddDays(1))
         .OrderBy(m => m.Date)
         .ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/meals", async (AppDbContext db, HttpContext ctx, MealLogRequest req) =>
 {
@@ -414,7 +566,7 @@ app.MapPost("/api/meals", async (AppDbContext db, HttpContext ctx, MealLogReques
     db.MealLogs.Add(meal);
     await db.SaveChangesAsync();
     return Results.Ok(meal);
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -424,7 +576,7 @@ app.MapDelete("/api/meals/{id:int}", async (AppDbContext db, HttpContext ctx, in
     db.MealLogs.Remove(meal);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 app.MapPost("/api/meals/advice", async (
     MealService mealSvc, GeminiService gemini, HttpContext ctx, MealAdviceRequest req) =>
@@ -445,7 +597,7 @@ app.MapPost("/api/meals/advice", async (
         });
     }
     catch (GeminiApiException ex) { return Results.Problem(ex.Message, statusCode: 502); }
-});
+}).RequireAuthorization();
 
 // ─── AI HISTORY ───────────────────────────────────────────────────────────────
 app.MapGet("/api/ai-history", async (AppDbContext db, HttpContext ctx, string? type) =>
@@ -455,7 +607,7 @@ app.MapGet("/api/ai-history", async (AppDbContext db, HttpContext ctx, string? t
         .Where(l => l.UserProfileId == profileId);
     if (!string.IsNullOrWhiteSpace(type)) query = query.Where(l => l.PromptType == type);
     return Results.Ok(await query.OrderByDescending(l => l.CreatedAt).ToListAsync());
-});
+}).RequireAuthorization();
 
 app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -469,7 +621,7 @@ app.MapDelete("/api/ai-history/{id:int}", async (AppDbContext db, HttpContext ct
     db.AiPromptLogs.Remove(log);
     await db.SaveChangesAsync();
     return Results.Ok();
-});
+}).RequireAuthorization();
 
 app.Run("http://localhost:5000");
 
@@ -481,3 +633,9 @@ record MealLogRequest(string MealType, string Description, int? Calories, string
 record MealAdviceRequest(string Question);
 record ProfileRequest(string Name, double StartingWeight, double GoalWeight,
     DateTime StartDate, string? FitnessLevel, string? Injuries, string? Goals);
+record CreateUserRequest(string Username, string Password, ProfileRequest Profile);
+record LoginRequest(string Username, string Password)
+{
+    public override string ToString() =>
+        $"LoginRequest {{ Username = {Username}, Password = [REDACTED] }}";
+}
