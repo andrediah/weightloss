@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 using WeightLossTracker.Data;
 using WeightLossTracker.Models;
 using WeightLossTracker.Services;
@@ -194,10 +195,9 @@ app.MapPost("/api/admin/users", async (
     var expectedKey = config["Admin:ApiKey"] ?? "";
     var providedKey = ctx.Request.Headers["X-Admin-Key"].FirstOrDefault() ?? "";
 
-    var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expectedKey);
-    var providedBytes = System.Text.Encoding.UTF8.GetBytes(providedKey);
-    bool keyValid = expectedBytes.Length == providedBytes.Length &&
-        CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes);
+    var expectedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(expectedKey));
+    var providedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(providedKey));
+    bool keyValid = CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes);
 
     if (string.IsNullOrWhiteSpace(expectedKey) || !keyValid)
         return Results.Forbid();
@@ -212,9 +212,6 @@ app.MapPost("/api/admin/users", async (
         return Results.BadRequest("Profile name is required.");
 
     var normalizedUsername = req.Username.Trim().ToLower();
-    var exists = await db.Users.AnyAsync(u => u.Username == normalizedUsername);
-    if (exists)
-        return Results.Conflict("Username already taken.");
 
     var user = new User
     {
@@ -256,6 +253,11 @@ app.MapPost("/api/admin/users", async (
 
         await transaction.CommitAsync();
         return Results.Ok(new { userId = user.Id, profileId = profile.Id, username = user.Username });
+    }
+    catch (DbUpdateException)
+    {
+        await transaction.RollbackAsync();
+        return Results.Conflict("Username already taken.");
     }
     catch
     {
