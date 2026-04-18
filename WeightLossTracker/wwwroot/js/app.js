@@ -26,7 +26,7 @@ const C = {
 
 let activeChart = null;
 let activeProfile = null;
-let allProfiles = [];
+let currentUser = null;
 let currentView = 'dashboard';
 
 // ─── Markdown renderer ─────────────────────────────────────────────────────────
@@ -131,53 +131,90 @@ function toggleTheme() {
   applyTheme(isDark);
 }
 
-// ─── Profile management ──────────────────────────────────────────────────────
-async function initProfile() {
-  const r = await Bridge.call('getProfiles');
-  if (!r.ok) return;
-  allProfiles = r.data;
-  if (allProfiles.length === 0) return;
-
-  const savedId = localStorage.getItem('activeProfileId');
-  const match = allProfiles.find(p => String(p.id) === savedId);
-  activeProfile = match || allProfiles[0];
-  localStorage.setItem('activeProfileId', String(activeProfile.id));
-
-  updateProfileUI();
+// ─── Auth ──────────────────────────────────────────────────────────────────
+function showLoginView() {
+  document.getElementById('login-view').classList.remove('hidden');
 }
 
-function switchProfile(id) {
-  localStorage.setItem('activeProfileId', String(id));
-  const match = allProfiles.find(p => String(p.id) === String(id));
-  if (match) activeProfile = match;
+function hideLoginView() {
+  document.getElementById('login-view').classList.add('hidden');
+}
+
+async function initAuth() {
+  const r = await Bridge.call('getMe');
+  if (!r.ok) {
+    showLoginView();
+    return false;
+  }
+  currentUser = { username: r.data.username };
+  activeProfile = r.data.profile;
   updateProfileUI();
-  navigate(currentView);
+  return true;
+}
+
+async function handleLogout() {
+  await Bridge.call('logout');
+  currentUser = null;
+  activeProfile = null;
+  showLoginView();
 }
 
 function updateProfileUI() {
-  if (!activeProfile) return;
+  if (!activeProfile || !currentUser) return;
+
   const goalText = `Goal: ${activeProfile.startingWeight} → ${activeProfile.goalWeight} lbs`;
   const lossText = `${Math.round(activeProfile.startingWeight - activeProfile.goalWeight)} lbs to lose`;
 
-  // Sidebar goal text
   const sidebarGoal = document.getElementById('sidebar-goal-text');
   if (sidebarGoal) sidebarGoal.innerHTML = `${escHtml(goalText)}<br><span class="text-indigo-500">${escHtml(lossText)}</span>`;
 
-  // Mobile goal text
-  const mobileGoal = document.getElementById('mobile-goal-text');
-  if (mobileGoal) mobileGoal.textContent = `${activeProfile.startingWeight} → ${activeProfile.goalWeight} lbs`;
+  const sidebarUsername = document.getElementById('sidebar-username');
+  if (sidebarUsername) sidebarUsername.textContent = currentUser.username;
 
-  // Update profile selectors
-  const optionsHtml = allProfiles.map(p =>
-    `<option value="${p.id}" ${p.id === activeProfile.id ? 'selected' : ''}>${escHtml(p.name)}</option>`
-  ).join('');
-
-  const sidebar = document.getElementById('sidebar-profile-selector');
-  if (sidebar) sidebar.innerHTML = optionsHtml;
-
-  const mobile = document.getElementById('mobile-profile-selector');
-  if (mobile) mobile.innerHTML = optionsHtml;
+  const mobileUsername = document.getElementById('mobile-username');
+  if (mobileUsername) mobileUsername.textContent = currentUser.username;
 }
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.innerHTML = '';
+
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+
+  if (!username || !password) {
+    showError('login-error', 'Username and password are required.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Logging in…';
+
+  const r = await Bridge.call('login', { username, password });
+
+  btn.disabled = false;
+  btn.textContent = 'Log in';
+
+  if (!r.ok) {
+    showError('login-error', 'Invalid username or password.');
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-username').focus();
+    return;
+  }
+
+  currentUser = { username: r.data.username };
+  hideLoginView();
+
+  const meResult = await Bridge.call('getMe');
+  if (meResult.ok) {
+    activeProfile = meResult.data.profile;
+    updateProfileUI();
+  }
+
+  navigate('dashboard');
+});
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 function navigate(viewName) {
@@ -1106,129 +1143,54 @@ async function deleteAiHistory(id) {
 async function renderProfile() {
   const root = document.getElementById('view-root');
 
-  const r = await Bridge.call('getProfiles');
-  if (!r.ok) {
-    root.innerHTML = `<p class="text-red-600 dark:text-red-400 p-4">Failed to load profiles.</p>`;
+  if (!activeProfile) {
+    root.innerHTML = `<p class="text-red-600 dark:text-red-400 p-4">Profile not loaded.</p>`;
     return;
   }
-  allProfiles = r.data;
 
   root.innerHTML = `
     <div class="space-y-6">
-      <h1 class="${C.h1}">Profiles</h1>
+      <h1 class="${C.h1}">Profile</h1>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Edit current profile -->
-        <div class="${C.card}">
-          <h2 class="${C.h2}">Edit current profile</h2>
-          <div id="profile-edit-error"></div>
-          <form id="profile-edit-form" class="space-y-3" novalidate>
-            <div>
-              <label for="pe-name" class="${C.label}">Profile name</label>
-              <input id="pe-name" type="text" required class="${C.input}" value="${escHtml(activeProfile?.name || '')}">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label for="pe-sw" class="${C.label}">Starting weight (lbs)</label>
-                <input id="pe-sw" type="number" step="0.1" min="50" max="500" required class="${C.input}" value="${activeProfile?.startingWeight || ''}">
-              </div>
-              <div>
-                <label for="pe-gw" class="${C.label}">Goal weight (lbs)</label>
-                <input id="pe-gw" type="number" step="0.1" min="50" max="500" required class="${C.input}" value="${activeProfile?.goalWeight || ''}">
-              </div>
-            </div>
-            <div>
-              <label for="pe-fl" class="${C.label}">Fitness level</label>
-              <select id="pe-fl" class="${C.select}">
-                ${['Beginner','Intermediate','Advanced'].map(l =>
-                  `<option ${activeProfile?.fitnessLevel === l ? 'selected' : ''}>${l}</option>`
-                ).join('')}
-              </select>
-            </div>
-            <div>
-              <label for="pe-inj" class="${C.label}">Injuries</label>
-              <input id="pe-inj" type="text" class="${C.input}" value="${escHtml(activeProfile?.injuries || '')}" placeholder="e.g. Neck injury, lower back injury">
-            </div>
-            <div>
-              <label for="pe-goals" class="${C.label}">Goals</label>
-              <input id="pe-goals" type="text" class="${C.input}" value="${escHtml(activeProfile?.goals || '')}" placeholder="e.g. Lose weight, build muscle">
-            </div>
-            <button type="submit" class="${C.btnPrimary} w-full">Save changes</button>
-          </form>
-        </div>
-
-        <!-- Create new profile -->
-        <div class="space-y-4">
-          <div class="${C.card}">
-            <h2 class="${C.h2}">Create new profile</h2>
-            <div id="profile-create-error"></div>
-            <form id="profile-create-form" class="space-y-3" novalidate>
-              <div>
-                <label for="pc-name" class="${C.label}">Profile name</label>
-                <input id="pc-name" type="text" required class="${C.input}" placeholder="e.g. John">
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label for="pc-sw" class="${C.label}">Starting weight (lbs)</label>
-                  <input id="pc-sw" type="number" step="0.1" min="50" max="500" required class="${C.input}" placeholder="e.g. 200">
-                </div>
-                <div>
-                  <label for="pc-gw" class="${C.label}">Goal weight (lbs)</label>
-                  <input id="pc-gw" type="number" step="0.1" min="50" max="500" required class="${C.input}" placeholder="e.g. 175">
-                </div>
-              </div>
-              <div>
-                <label for="pc-fl" class="${C.label}">Fitness level</label>
-                <select id="pc-fl" class="${C.select}">
-                  <option>Beginner</option>
-                  <option>Intermediate</option>
-                  <option>Advanced</option>
-                </select>
-              </div>
-              <div>
-                <label for="pc-inj" class="${C.label}">Injuries</label>
-                <input id="pc-inj" type="text" class="${C.input}" placeholder="e.g. None">
-              </div>
-              <div>
-                <label for="pc-goals" class="${C.label}">Goals</label>
-                <input id="pc-goals" type="text" class="${C.input}" placeholder="e.g. Lose weight">
-              </div>
-              <button type="submit" class="${C.btnSuccess} w-full px-5">Create profile</button>
-            </form>
+      <div class="${C.card} max-w-lg">
+        <h2 class="${C.h2}">Edit your profile</h2>
+        <div id="profile-edit-error"></div>
+        <form id="profile-edit-form" class="space-y-3" novalidate>
+          <div>
+            <label for="pe-name" class="${C.label}">Display name</label>
+            <input id="pe-name" type="text" required class="${C.input}" value="${escHtml(activeProfile.name || '')}">
           </div>
-
-          <!-- All profiles list -->
-          <div class="${C.card}">
-            <h2 class="${C.h2}">All profiles</h2>
-            <div id="profile-list" class="space-y-2">
-              ${allProfiles.map(p => `
-                <div class="flex justify-between items-center border dark:border-gray-700 rounded-lg p-3
-                            ${p.id === activeProfile?.id ? 'border-indigo-400 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : ''}">
-                  <div>
-                    <div class="font-medium text-gray-800 dark:text-gray-100">${escHtml(p.name)}</div>
-                    <div class="${C.tinyText}">${p.startingWeight} → ${p.goalWeight} lbs · ${escHtml(p.fitnessLevel)}</div>
-                  </div>
-                  <div class="flex gap-2 items-center">
-                    ${p.id !== activeProfile?.id
-                      ? `<button onclick="switchProfile(${p.id}); navigate('profile');"
-                                class="text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 text-xs font-medium">
-                           Switch
-                         </button>`
-                      : `<span class="${C.badge} bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Active</span>`}
-                    <button onclick="deleteProfileById(${p.id})"
-                            ${allProfiles.length <= 1 ? 'disabled' : ''}
-                            class="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed min-h-[36px] min-w-[36px]">
-                      Delete
-                    </button>
-                  </div>
-                </div>`).join('')}
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="pe-sw" class="${C.label}">Starting weight (lbs)</label>
+              <input id="pe-sw" type="number" step="0.1" min="50" max="500" required class="${C.input}" value="${activeProfile.startingWeight || ''}">
+            </div>
+            <div>
+              <label for="pe-gw" class="${C.label}">Goal weight (lbs)</label>
+              <input id="pe-gw" type="number" step="0.1" min="50" max="500" required class="${C.input}" value="${activeProfile.goalWeight || ''}">
             </div>
           </div>
-        </div>
+          <div>
+            <label for="pe-fl" class="${C.label}">Fitness level</label>
+            <select id="pe-fl" class="${C.select}">
+              ${['Beginner','Intermediate','Advanced'].map(l =>
+                `<option ${activeProfile.fitnessLevel === l ? 'selected' : ''}>${l}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div>
+            <label for="pe-inj" class="${C.label}">Injuries</label>
+            <input id="pe-inj" type="text" class="${C.input}" value="${escHtml(activeProfile.injuries || '')}" placeholder="e.g. Neck injury, lower back injury">
+          </div>
+          <div>
+            <label for="pe-goals" class="${C.label}">Goals</label>
+            <input id="pe-goals" type="text" class="${C.input}" value="${escHtml(activeProfile.goals || '')}" placeholder="e.g. Lose weight, build muscle">
+          </div>
+          <button type="submit" class="${C.btnPrimary} w-full">Save changes</button>
+        </form>
       </div>
     </div>`;
 
-  // Edit form handler
   document.getElementById('profile-edit-form').addEventListener('submit', async e => {
     e.preventDefault();
     clearError('profile-edit-error');
@@ -1243,56 +1205,20 @@ async function renderProfile() {
       goals: document.getElementById('pe-goals').value.trim(),
     };
     if (!data.name) { showError('profile-edit-error', 'Name is required.'); return; }
+    if (isNaN(data.startingWeight) || isNaN(data.goalWeight)) {
+      showError('profile-edit-error', 'Starting and goal weights are required.');
+      return;
+    }
     const r = await Bridge.call('updateProfile', data);
     if (!r.ok) { showError('profile-edit-error', r.data?.detail || r.data); return; }
     activeProfile = r.data;
-    const idx = allProfiles.findIndex(p => p.id === r.data.id);
-    if (idx >= 0) allProfiles[idx] = r.data;
     updateProfileUI();
     renderProfile();
   });
-
-  // Create form handler
-  document.getElementById('profile-create-form').addEventListener('submit', async e => {
-    e.preventDefault();
-    clearError('profile-create-error');
-    const data = {
-      name: document.getElementById('pc-name').value.trim(),
-      startingWeight: parseFloat(document.getElementById('pc-sw').value),
-      goalWeight: parseFloat(document.getElementById('pc-gw').value),
-      startDate: new Date().toISOString(),
-      fitnessLevel: document.getElementById('pc-fl').value,
-      injuries: document.getElementById('pc-inj').value.trim(),
-      goals: document.getElementById('pc-goals').value.trim(),
-    };
-    if (!data.name) { showError('profile-create-error', 'Name is required.'); return; }
-    if (isNaN(data.startingWeight) || isNaN(data.goalWeight)) {
-      showError('profile-create-error', 'Starting and goal weights are required.'); return;
-    }
-    const r = await Bridge.call('createProfile', data);
-    if (!r.ok) { showError('profile-create-error', r.data?.detail || r.data); return; }
-    allProfiles.push(r.data);
-    switchProfile(r.data.id);
-    navigate('profile');
-  });
-}
-
-async function deleteProfileById(id) {
-  if (!confirm('Delete this profile and ALL its data? This cannot be undone.')) return;
-  const r = await Bridge.call('deleteProfile', { id });
-  if (!r.ok) {
-    showError('profile-edit-error', r.data?.detail || r.data || 'Failed to delete profile.');
-    return;
-  }
-  allProfiles = allProfiles.filter(p => p.id !== id);
-  if (activeProfile?.id === id) {
-    activeProfile = allProfiles[0] || null;
-    if (activeProfile) localStorage.setItem('activeProfileId', String(activeProfile.id));
-  }
-  updateProfileUI();
-  renderProfile();
 }
 
 // ─── Initialise ───────────────────────────────────────────────────────────────
 initTheme();
-initProfile().then(() => navigate('dashboard'));
+initAuth().then(authenticated => {
+  if (authenticated) navigate('dashboard');
+});
