@@ -114,15 +114,21 @@ app.MapPost("/api/auth/login", async (
     if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
         return Results.BadRequest("Username and password are required.");
 
+    if (req.Password.Length > 1000)
+        return Results.BadRequest("Password too long.");
+
     var user = await db.Users
         .FirstOrDefaultAsync(u => u.Username == req.Username.Trim().ToLower());
 
-    if (user is null || !auth.VerifyPassword(req.Password, user.PasswordHash))
+    var hashToCheck = user?.PasswordHash ?? "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/bkiZ7hD3hZJOX6K3i";
+    var passwordValid = auth.VerifyPassword(req.Password, hashToCheck);
+
+    if (user is null || !passwordValid)
         return Results.Unauthorized();
 
     var profile = await db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id);
     if (profile is null)
-        return Results.Problem("No profile associated with this account.", statusCode: 500);
+        return Results.Unauthorized();
 
     var claims = new List<Claim>
     {
@@ -593,4 +599,8 @@ record MealLogRequest(string MealType, string Description, int? Calories, string
 record MealAdviceRequest(string Question);
 record ProfileRequest(string Name, double StartingWeight, double GoalWeight,
     DateTime StartDate, string? FitnessLevel, string? Injuries, string? Goals);
-record LoginRequest(string Username, string Password);
+record LoginRequest(string Username, string Password)
+{
+    public override string ToString() =>
+        $"LoginRequest {{ Username = {Username}, Password = [REDACTED] }}";
+}
