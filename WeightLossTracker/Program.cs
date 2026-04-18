@@ -126,6 +126,7 @@ app.MapPost("/api/auth/login", async (
     var user = await db.Users
         .FirstOrDefaultAsync(u => u.Username == req.Username.Trim().ToLower());
 
+    // Dummy hash (work factor 12) — prevents timing oracle on unknown usernames. Regenerate if WorkFactor changes.
     var hashToCheck = user?.PasswordHash ?? "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/bkiZ7hD3hZJOX6K3i";
     var passwordValid = auth.VerifyPassword(req.Password, hashToCheck);
 
@@ -185,7 +186,7 @@ app.MapGet("/api/auth/me", async (AppDbContext db, HttpContext ctx) =>
             profile.Goals
         }
     });
-});
+}).AllowAnonymous();
 
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
 app.MapPost("/api/admin/users", async (
@@ -284,40 +285,6 @@ app.MapGet("/api/profiles", async (AppDbContext db, HttpContext ctx) =>
     return profile is null ? Results.NotFound() : Results.Ok(profile);
 }).RequireAuthorization();
 
-app.MapPost("/api/profiles", async (AppDbContext db, HttpContext ctx, ProfileRequest req) =>
-{
-    if (string.IsNullOrWhiteSpace(req.Name))
-        return Results.BadRequest("Name is required.");
-
-    var profile = new UserProfile
-    {
-        Name = req.Name.Trim(),
-        StartingWeight = req.StartingWeight,
-        GoalWeight = req.GoalWeight,
-        StartDate = req.StartDate,
-        FitnessLevel = req.FitnessLevel ?? "",
-        Injuries = req.Injuries ?? "",
-        Goals = req.Goals ?? ""
-    };
-    var userId = int.Parse(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-    profile.UserId = userId;
-    db.UserProfiles.Add(profile);
-    await db.SaveChangesAsync();
-
-    // Create 7 default WorkoutScheduleDays (all Rest)
-    for (int dow = 0; dow <= 6; dow++)
-    {
-        db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
-        {
-            UserProfileId = profile.Id,
-            DayOfWeek = dow,
-            Location = "Rest"
-        });
-    }
-    await db.SaveChangesAsync();
-
-    return Results.Ok(profile);
-}).RequireAuthorization();
 
 app.MapGet("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
 {
@@ -346,26 +313,6 @@ app.MapPut("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, in
     return Results.Ok(profile);
 }).RequireAuthorization();
 
-app.MapDelete("/api/profiles/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
-{
-    if (id != GetProfileId(ctx)) return Results.Forbid();
-    var count = await db.UserProfiles.CountAsync();
-    if (count <= 1) return Results.BadRequest("Cannot delete the last profile.");
-
-    var profile = await db.UserProfiles.FindAsync(id);
-    if (profile is null) return Results.NotFound();
-
-    // Manually remove ExerciseSuggestions first (they have Restrict FK to AiPromptLog)
-    var exercises = await db.ExerciseSuggestions
-        .Where(e => e.UserProfileId == id)
-        .ToListAsync();
-    db.ExerciseSuggestions.RemoveRange(exercises);
-    await db.SaveChangesAsync();
-
-    db.UserProfiles.Remove(profile);
-    await db.SaveChangesAsync();
-    return Results.Ok();
-}).RequireAuthorization();
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
