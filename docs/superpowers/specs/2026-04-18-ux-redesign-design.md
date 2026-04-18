@@ -26,15 +26,17 @@
 
 ### Accent presets (user-selectable, 5 options)
 
-Each preset overrides `--color-accent-*` tokens only. The warm base never changes.
+All presets are warm or warm-adjacent so they harmonise with the fixed warm base at all times. The warm base (`--color-surface-primary`) never changes regardless of accent choice.
 
 | Name | Primary | Dark variant |
 |---|---|---|
 | **Amber** (default) | `#f59e0b` / `#d97706` | same — amber reads well on dark |
-| **Teal** | `#34d399` / `#059669` | `#6ee7b7` / `#10b981` |
 | **Rose** | `#f472b6` / `#db2777` | `#f9a8d4` / `#ec4899` |
-| **Blue** | `#60a5fa` / `#2563eb` | `#93c5fd` / `#3b82f6` |
+| **Coral** | `#fb923c` / `#ea580c` | `#fdba74` / `#f97316` |
+| **Gold** | `#eab308` / `#ca8a04` | `#fde047` / `#facc15` |
 | **Violet** | `#a78bfa` / `#7c3aed` | `#c4b5fd` / `#8b5cf6` |
+
+Cool accents (Teal, Blue) are excluded — they create temperature contrast against the warm base surfaces that cannot be resolved without changing the base, which is out of scope.
 
 Secondary accent (violet) is always present alongside the user's chosen primary accent, serving as a counter-colour on data callouts and the log entry header.
 
