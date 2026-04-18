@@ -181,6 +181,65 @@ app.MapGet("/api/auth/me", async (AppDbContext db, HttpContext ctx) =>
     });
 });
 
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+app.MapPost("/api/admin/users", async (
+    AppDbContext db, IAuthService auth, IConfiguration config,
+    HttpContext ctx, CreateUserRequest req) =>
+{
+    var expectedKey = config["Admin:ApiKey"] ?? "";
+    var providedKey = ctx.Request.Headers["X-Admin-Key"].FirstOrDefault() ?? "";
+
+    if (string.IsNullOrWhiteSpace(expectedKey) || providedKey != expectedKey)
+        return Results.Forbid();
+
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest("Username and password are required.");
+
+    if (string.IsNullOrWhiteSpace(req.Profile.Name))
+        return Results.BadRequest("Profile name is required.");
+
+    var normalizedUsername = req.Username.Trim().ToLower();
+    var exists = await db.Users.AnyAsync(u => u.Username == normalizedUsername);
+    if (exists)
+        return Results.Conflict("Username already taken.");
+
+    var user = new User
+    {
+        Username = normalizedUsername,
+        PasswordHash = auth.HashPassword(req.Password),
+        CreatedAt = DateTime.UtcNow
+    };
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+
+    var profile = new UserProfile
+    {
+        UserId = user.Id,
+        Name = req.Profile.Name.Trim(),
+        StartingWeight = req.Profile.StartingWeight,
+        GoalWeight = req.Profile.GoalWeight,
+        StartDate = req.Profile.StartDate,
+        FitnessLevel = req.Profile.FitnessLevel ?? "",
+        Injuries = req.Profile.Injuries ?? "",
+        Goals = req.Profile.Goals ?? ""
+    };
+    db.UserProfiles.Add(profile);
+    await db.SaveChangesAsync(); // Save profile first so profile.Id is populated
+
+    for (int dow = 0; dow <= 6; dow++)
+    {
+        db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
+        {
+            UserProfileId = profile.Id,
+            DayOfWeek = dow,
+            Location = "Rest"
+        });
+    }
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { userId = user.Id, profileId = profile.Id, username = user.Username });
+});
+
 // ─── Helper: extract active profile ID from the authenticated user's claims ───
 static int GetProfileId(HttpContext ctx)
 {
@@ -599,6 +658,7 @@ record MealLogRequest(string MealType, string Description, int? Calories, string
 record MealAdviceRequest(string Question);
 record ProfileRequest(string Name, double StartingWeight, double GoalWeight,
     DateTime StartDate, string? FitnessLevel, string? Injuries, string? Goals);
+record CreateUserRequest(string Username, string Password, ProfileRequest Profile);
 record LoginRequest(string Username, string Password)
 {
     public override string ToString() =>
