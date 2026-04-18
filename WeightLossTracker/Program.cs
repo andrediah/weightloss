@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -105,6 +106,74 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+app.MapPost("/api/auth/login", async (
+    AppDbContext db, IAuthService auth, HttpContext ctx, LoginRequest req) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest("Username and password are required.");
+
+    var user = await db.Users
+        .FirstOrDefaultAsync(u => u.Username == req.Username.Trim().ToLower());
+
+    if (user is null || !auth.VerifyPassword(req.Password, user.PasswordHash))
+        return Results.Unauthorized();
+
+    var profile = await db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id);
+    if (profile is null)
+        return Results.Problem("No profile associated with this account.", statusCode: 500);
+
+    var claims = new List<Claim>
+    {
+        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new(ClaimTypes.Name, user.Username),
+        new("profileId", profile.Id.ToString()),
+    };
+    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignInAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        new ClaimsPrincipal(identity));
+
+    return Results.Ok(new { username = user.Username, profileId = profile.Id });
+});
+
+app.MapPost("/api/auth/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Ok();
+});
+
+app.MapGet("/api/auth/me", async (AppDbContext db, HttpContext ctx) =>
+{
+    if (!(ctx.User.Identity?.IsAuthenticated ?? false))
+        return Results.Unauthorized();
+
+    var username = ctx.User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    var profileIdClaim = ctx.User.FindFirst("profileId")?.Value;
+    if (!int.TryParse(profileIdClaim, out var profileId) || profileId <= 0)
+        return Results.Unauthorized();
+
+    var profile = await db.UserProfiles.FindAsync(profileId);
+    if (profile is null) return Results.Unauthorized();
+
+    return Results.Ok(new
+    {
+        username,
+        profileId,
+        profile = new
+        {
+            profile.Id,
+            profile.Name,
+            profile.StartingWeight,
+            profile.GoalWeight,
+            profile.StartDate,
+            profile.FitnessLevel,
+            profile.Injuries,
+            profile.Goals
+        }
+    });
+});
 
 // ─── Helper: extract active profile ID from the authenticated user's claims ───
 static int GetProfileId(HttpContext ctx)
@@ -524,3 +593,4 @@ record MealLogRequest(string MealType, string Description, int? Calories, string
 record MealAdviceRequest(string Question);
 record ProfileRequest(string Name, double StartingWeight, double GoalWeight,
     DateTime StartDate, string? FitnessLevel, string? Injuries, string? Goals);
+record LoginRequest(string Username, string Password);
