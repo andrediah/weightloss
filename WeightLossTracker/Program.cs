@@ -212,7 +212,6 @@ app.MapPost("/api/admin/users", async (
         return Results.BadRequest("Profile name is required.");
 
     var normalizedUsername = req.Username.Trim().ToLower();
-
     var user = new User
     {
         Username = normalizedUsername,
@@ -254,7 +253,10 @@ app.MapPost("/api/admin/users", async (
         await transaction.CommitAsync();
         return Results.Ok(new { userId = user.Id, profileId = profile.Id, username = user.Username });
     }
-    catch (DbUpdateException)
+    catch (DbUpdateException ex)
+        when (ex.InnerException is SqliteException sqEx
+              && sqEx.SqliteErrorCode == 19
+              && sqEx.Message.Contains("Users.Username"))
     {
         await transaction.RollbackAsync();
         return Results.Conflict("Username already taken.");
