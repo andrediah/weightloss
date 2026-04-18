@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using WeightLossTracker.Data;
 using WeightLossTracker.Models;
 using WeightLossTracker.Services;
@@ -102,6 +103,10 @@ if (string.IsNullOrWhiteSpace(apiKey))
     app.Logger.LogWarning(
         "Gemini:ApiKey is not configured. AI features will be unavailable (degraded mode).");
 
+var adminKey = app.Configuration["Admin:ApiKey"];
+if (string.IsNullOrWhiteSpace(adminKey))
+    app.Logger.LogWarning("Admin:ApiKey is not configured. The /api/admin/users endpoint will reject all requests.");
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
@@ -189,11 +194,19 @@ app.MapPost("/api/admin/users", async (
     var expectedKey = config["Admin:ApiKey"] ?? "";
     var providedKey = ctx.Request.Headers["X-Admin-Key"].FirstOrDefault() ?? "";
 
-    if (string.IsNullOrWhiteSpace(expectedKey) || providedKey != expectedKey)
+    var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expectedKey);
+    var providedBytes = System.Text.Encoding.UTF8.GetBytes(providedKey);
+    bool keyValid = expectedBytes.Length == providedBytes.Length &&
+        CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes);
+
+    if (string.IsNullOrWhiteSpace(expectedKey) || !keyValid)
         return Results.Forbid();
 
     if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
         return Results.BadRequest("Username and password are required.");
+
+    if (req.Password.Length > 1000)
+        return Results.BadRequest("Password too long.");
 
     if (string.IsNullOrWhiteSpace(req.Profile.Name))
         return Results.BadRequest("Profile name is required.");
@@ -209,35 +222,46 @@ app.MapPost("/api/admin/users", async (
         PasswordHash = auth.HashPassword(req.Password),
         CreatedAt = DateTime.UtcNow
     };
-    db.Users.Add(user);
-    await db.SaveChangesAsync();
 
-    var profile = new UserProfile
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    try
     {
-        UserId = user.Id,
-        Name = req.Profile.Name.Trim(),
-        StartingWeight = req.Profile.StartingWeight,
-        GoalWeight = req.Profile.GoalWeight,
-        StartDate = req.Profile.StartDate,
-        FitnessLevel = req.Profile.FitnessLevel ?? "",
-        Injuries = req.Profile.Injuries ?? "",
-        Goals = req.Profile.Goals ?? ""
-    };
-    db.UserProfiles.Add(profile);
-    await db.SaveChangesAsync(); // Save profile first so profile.Id is populated
+        db.Users.Add(user);
+        await db.SaveChangesAsync(); // user.Id populated here
 
-    for (int dow = 0; dow <= 6; dow++)
-    {
-        db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
+        var profile = new UserProfile
         {
-            UserProfileId = profile.Id,
-            DayOfWeek = dow,
-            Location = "Rest"
-        });
-    }
-    await db.SaveChangesAsync();
+            UserId = user.Id,
+            Name = req.Profile.Name.Trim(),
+            StartingWeight = req.Profile.StartingWeight,
+            GoalWeight = req.Profile.GoalWeight,
+            StartDate = req.Profile.StartDate,
+            FitnessLevel = req.Profile.FitnessLevel ?? "",
+            Injuries = req.Profile.Injuries ?? "",
+            Goals = req.Profile.Goals ?? ""
+        };
+        db.UserProfiles.Add(profile);
+        await db.SaveChangesAsync(); // profile.Id populated here
 
-    return Results.Ok(new { userId = user.Id, profileId = profile.Id, username = user.Username });
+        for (int dow = 0; dow <= 6; dow++)
+        {
+            db.WorkoutScheduleDays.Add(new WorkoutScheduleDay
+            {
+                UserProfileId = profile.Id,
+                DayOfWeek = dow,
+                Location = "Rest"
+            });
+        }
+        await db.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+        return Results.Ok(new { userId = user.Id, profileId = profile.Id, username = user.Username });
+    }
+    catch
+    {
+        await transaction.RollbackAsync();
+        throw;
+    }
 });
 
 // ─── Helper: extract active profile ID from the authenticated user's claims ───
