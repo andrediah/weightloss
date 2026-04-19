@@ -212,7 +212,7 @@ function updateProfileUI() {
   const lossText = `${Math.round(activeProfile.startingWeight - activeProfile.goalWeight)} lbs to lose`;
 
   const sidebarGoal = document.getElementById('sidebar-goal-text');
-  if (sidebarGoal) sidebarGoal.innerHTML = `${escHtml(goalText)}<br><span class="text-indigo-500">${escHtml(lossText)}</span>`;
+  if (sidebarGoal) sidebarGoal.innerHTML = `${escHtml(goalText)}<br><span style="color:rgba(255,255,255,0.7);">${escHtml(lossText)}</span>`;
 
   const sidebarUsername = document.getElementById('sidebar-username');
   if (sidebarUsername) sidebarUsername.textContent = currentUser.username;
@@ -1000,10 +1000,10 @@ async function loadWeightTable() {
       <table class="w-full text-sm" aria-label="Weight history">
         <thead>
           <tr class="${C.divider} text-left">
-            <th class="py-2 pr-4 text-gray-500 dark:text-gray-400 font-medium">Date</th>
-            <th class="py-2 pr-4 text-gray-500 dark:text-gray-400 font-medium">Weight</th>
-            <th class="py-2 flex-1 text-gray-500 dark:text-gray-400 font-medium">Notes</th>
-            <th class="py-2 text-gray-500 dark:text-gray-400 font-medium">
+            <th class="py-2 pr-4 font-medium" style="color:var(--color-text-secondary);">Date</th>
+            <th class="py-2 pr-4 font-medium" style="color:var(--color-text-secondary);">Weight</th>
+            <th class="py-2 flex-1 font-medium" style="color:var(--color-text-secondary);">Notes</th>
+            <th class="py-2 font-medium" style="color:var(--color-text-secondary);">
               <span class="sr-only">Actions</span>
             </th>
           </tr>
@@ -1018,14 +1018,14 @@ async function loadWeightTable() {
 function weightRow(e) {
   return `
     <tr id="row-${e.id}" class="${C.trow}">
-      <td class="py-2 pr-4 text-gray-600 dark:text-gray-300">${fmtDate(e.date)}</td>
-      <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">${e.weight.toFixed(1)}</td>
-      <td class="py-2 text-gray-500 dark:text-gray-400">${escHtml(e.notes || '')}</td>
+      <td class="py-2 pr-4" style="color:var(--color-text-primary);">${fmtDate(e.date)}</td>
+      <td class="py-2 pr-4 font-medium" style="color:var(--color-text-primary);">${e.weight.toFixed(1)}</td>
+      <td class="py-2" style="color:var(--color-text-secondary);">${escHtml(e.notes || '')}</td>
       <td class="py-2">
         <div class="flex gap-3">
           <button onclick="startEditWeight(${e.id}, ${e.weight}, '${escHtml(e.notes||'')}')"
                   aria-label="Edit weight entry for ${fmtDate(e.date)}"
-                  class="text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 text-xs font-medium">
+                  class="hover:opacity-75 text-xs font-medium" style="color:var(--color-accent);"
             Edit
           </button>
           <button onclick="deleteWeight(${e.id})"
