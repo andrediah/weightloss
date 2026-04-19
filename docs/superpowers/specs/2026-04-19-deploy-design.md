@@ -1,0 +1,310 @@
+# Deployment Design: GitHub → Digital Ocean Droplet
+
+**Date:** 2026-04-19  
+**App:** WeightLossTracker (ASP.NET Core 10, SQLite)  
+**Trigger:** Push to `main` branch
+
+---
+
+## Overview
+
+Automated CI/CD pipeline: push to `main` → GitHub Actions builds and publishes the app → deploys to a Digital Ocean Droplet via SSH → restarts a systemd service.
+
+```
+GitHub (main branch)
+       │  push
+       ▼
+GitHub Actions workflow
+  1. Run tests
+  2. dotnet publish (self-contained, linux-x64)
+  3. rsync files to Droplet
+  4. systemctl restart weightloss.service
+  5. Health check (fail Action if service is not active)
+       │
+       ▼
+Digital Ocean Droplet (Ubuntu)
+  ├── /opt/weightloss/          ← app binaries
+  ├── /var/lib/weightloss/      ← SQLite database (restricted permissions)
+  ├── systemd service           ← runs app as non-root user
+  └── nginx                     ← reverse proxy, TLS termination (Let's Encrypt)
+```
+
+---
+
+## Platform Setup: Step-by-Step
+
+### Platform 1: Local Machine (one-time)
+
+**Goal:** Generate a dedicated deploy SSH keypair that GitHub Actions will use to connect to the Droplet.
+
+1. Open a terminal and run:
+   ```bash
+   ssh-keygen -t ed25519 -C "weightloss-deploy" -f ~/.ssh/weightloss_deploy
+   ```
+   When prompted for a passphrase, press Enter (no passphrase — Actions needs unattended access).
+
+2. This produces two files:
+   - `~/.ssh/weightloss_deploy` — **private key** (goes into GitHub Secrets)
+   - `~/.ssh/weightloss_deploy.pub` — **public key** (goes onto the Droplet)
+
+3. Copy the public key to your clipboard:
+   ```bash
+   cat ~/.ssh/weightloss_deploy.pub
+   ```
+   Keep this terminal open — you'll need both values in the steps below.
+
+---
+
+### Platform 2: Digital Ocean (Droplet provisioning)
+
+**Goal:** Create an Ubuntu Droplet with your personal SSH access.
+
+1. Log in to [digitalocean.com](https://digitalocean.com).
+2. Click **Create → Droplets**.
+3. Choose:
+   - **Image:** Ubuntu 24.04 LTS
+   - **Size:** Basic, $6/mo (1 vCPU, 1GB RAM) is sufficient
+   - **Region:** Choose closest to you
+   - **Authentication:** Add your **personal** SSH key (not the deploy key — this is for your own admin access)
+4. Click **Create Droplet**. Note the assigned IP address.
+
+---
+
+### Platform 3: Droplet (server configuration, run as root via SSH)
+
+**Goal:** Install required software, create the app user, configure directories, systemd, nginx, and TLS.
+
+Connect to your Droplet:
+```bash
+ssh root@YOUR_DROPLET_IP
+```
+
+#### Step 1 — System updates
+```bash
+apt update && apt upgrade -y
+```
+
+#### Step 2 — Install nginx and Certbot
+```bash
+apt install -y nginx certbot python3-certbot-nginx
+```
+
+#### Step 3 — Create the app user and directories
+```bash
+useradd --system --shell /usr/sbin/nologin weightloss
+mkdir -p /opt/weightloss /var/lib/weightloss
+chown weightloss:weightloss /opt/weightloss /var/lib/weightloss
+chmod 750 /var/lib/weightloss
+chmod 755 /opt/weightloss
+```
+
+#### Step 4 — Add the deploy SSH public key
+```bash
+mkdir -p /home/weightloss/.ssh
+echo "PASTE_PUBLIC_KEY_HERE" >> /home/weightloss/.ssh/authorized_keys
+chown -R weightloss:weightloss /home/weightloss/.ssh
+chmod 700 /home/weightloss/.ssh
+chmod 600 /home/weightloss/.ssh/authorized_keys
+```
+Replace `PASTE_PUBLIC_KEY_HERE` with the contents of `~/.ssh/weightloss_deploy.pub` from your local machine.
+
+> Note: The `weightloss` user has no login shell but CAN be used for SSH file transfers and running remote commands via GitHub Actions.
+
+#### Step 5 — Grant passwordless sudo for service restart only
+```bash
+echo "weightloss ALL=(ALL) NOPASSWD: /bin/systemctl restart weightloss.service, /bin/systemctl is-active weightloss.service" \
+  > /etc/sudoers.d/weightloss
+chmod 440 /etc/sudoers.d/weightloss
+```
+
+#### Step 6 — Create the systemd service unit
+```bash
+cat > /etc/systemd/system/weightloss.service << 'EOF'
+[Unit]
+Description=WeightLossTracker
+After=network.target
+
+[Service]
+User=weightloss
+WorkingDirectory=/opt/weightloss
+ExecStart=/opt/weightloss/WeightLossTracker
+Restart=always
+RestartSec=5
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://localhost:5000
+Environment=Gemini__ApiKey=REPLACE_WITH_ACTUAL_VALUE
+Environment=Admin__ApiKey=REPLACE_WITH_ACTUAL_VALUE
+Environment=ConnectionStrings__DefaultConnection=Data Source=/var/lib/weightloss/weightloss.db
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+chmod 600 /etc/systemd/system/weightloss.service
+chown root:root /etc/systemd/system/weightloss.service
+systemctl daemon-reload
+systemctl enable weightloss.service
+```
+
+Replace `REPLACE_WITH_ACTUAL_VALUE` with your real Gemini API key and Admin API key **before** saving.
+
+#### Step 7 — Configure nginx
+```bash
+cat > /etc/nginx/sites-available/weightloss << 'EOF'
+server {
+    listen 80;
+    server_name YOUR_DOMAIN_HERE;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF
+
+ln -s /etc/nginx/sites-available/weightloss /etc/nginx/sites-enabled/weightloss
+nginx -t && systemctl reload nginx
+```
+Replace `YOUR_DOMAIN_HERE` with your actual domain (e.g. `tracker.example.com`). If you don't have a domain yet, use the Droplet IP temporarily and skip Step 8.
+
+#### Step 8 — Provision TLS certificate (requires domain pointing to Droplet IP)
+First, set your domain's DNS A record to the Droplet IP and wait for it to propagate (can take up to 30 minutes). Then:
+```bash
+certbot --nginx -d YOUR_DOMAIN_HERE --non-interactive --agree-tos -m YOUR_EMAIL
+```
+Certbot automatically updates the nginx config and sets up auto-renewal.
+
+#### Step 9 — Open firewall ports
+```bash
+ufw allow OpenSSH
+ufw allow 'Nginx Full'
+ufw enable
+```
+
+---
+
+### Platform 4: GitHub Repository (secrets and workflow)
+
+**Goal:** Store the deploy credentials and add the Actions workflow file.
+
+#### Step 1 — Add GitHub Secrets
+1. Go to your repo on GitHub.
+2. Click **Settings → Secrets and variables → Actions → New repository secret**.
+3. Add these three secrets:
+
+| Name | Value |
+|------|-------|
+| `DO_SSH_HOST` | Your Droplet IP address |
+| `DO_SSH_USER` | `weightloss` |
+| `DO_SSH_KEY` | Full contents of `~/.ssh/weightloss_deploy` (the private key, including `-----BEGIN...` and `-----END...` lines) |
+
+#### Step 2 — Add the workflow file
+Create `.github/workflows/deploy.yml` in your repository (this is created as part of implementation — listed here for reference):
+
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Run tests
+        run: dotnet test WeightLossTracker.Tests/WeightLossTracker.Tests.csproj --configuration Release
+
+      - name: Publish
+        run: dotnet publish WeightLossTracker/WeightLossTracker.csproj -c Release -r linux-x64 --self-contained true -o ./publish
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: mkdir -p /opt/weightloss
+
+      - name: Copy files
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "./publish/*"
+          target: "/opt/weightloss"
+          strip_components: 1
+
+      - name: Restart and verify service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            sudo systemctl restart weightloss.service
+            sleep 3
+            sudo systemctl is-active --quiet weightloss.service || exit 1
+```
+
+---
+
+### Platform 5: Codebase (appsettings.json cleanup)
+
+**Goal:** Remove hardcoded secrets from the repository before first deploy.
+
+In `WeightLossTracker/appsettings.json`, blank out the API key values:
+
+```json
+"Gemini": {
+  "ApiKey": "",
+  "Model": "gemini-2.5-flash",
+  "MaxOutputTokens": 1024
+},
+"Admin": {
+  "ApiKey": ""
+}
+```
+
+ASP.NET Core's configuration system automatically maps environment variables using double-underscore as a separator, so `Gemini__ApiKey` (set in the systemd unit) resolves to `Gemini:ApiKey` at runtime. No code changes needed.
+
+---
+
+## Security Practices
+
+| Concern | Mitigation |
+|---------|-----------|
+| App runs as root | Dedicated `weightloss` system user, no login shell |
+| SQLite accessible by other users | `/var/lib/weightloss/` is `chmod 750`, owned by `weightloss` |
+| Secrets in repository | All secrets in systemd unit file (`root:root 600`), not in `appsettings.json` |
+| Personal SSH key used for deploy | Dedicated deploy SSH keypair, private key stored as GitHub Secret only |
+| HTTP traffic | nginx forces HTTPS redirect; Let's Encrypt cert auto-renews via Certbot |
+| Bad deploy reaches server | Tests must pass before deploy; health check verifies service starts |
+| Over-privileged deploy user | `weightloss` can only sudo two specific systemctl commands, nothing else |
+
+---
+
+## Deployment Flow (steady state)
+
+1. Developer merges PR to `main`
+2. GitHub Actions triggers automatically
+3. Tests run — deploy aborts if any fail
+4. App is published (self-contained linux-x64 binary) and synced to `/opt/weightloss/`
+5. Service restarts; 3-second wait; health check confirms it's active
+6. GitHub Actions reports success or failure in the repo's Actions tab
