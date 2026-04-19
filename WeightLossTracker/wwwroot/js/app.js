@@ -625,6 +625,175 @@ async function saveLogEntry() {
   }
 }
 
+// ─── TRENDS ────────────────────────────────────────────────────────────────────
+let _trendsPeriod = '1W';
+
+async function renderTrends() {
+  const root = document.getElementById('view-root');
+  root.innerHTML = `
+    <div>
+      <!-- Amber gradient header -->
+      <div class="rounded-2xl p-5 mb-4 text-white"
+           style="background: linear-gradient(160deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);">
+        <div class="font-bold text-xs uppercase tracking-widest mb-1"
+             style="color:rgba(255,255,255,0.75);">Your trends 📈</div>
+        <div class="font-extrabold mb-4" style="font-size:clamp(1.1rem,3vw,1.4rem);">
+          See your journey
+        </div>
+        <!-- Period tabs -->
+        <div class="flex gap-2">
+          ${['1W','1M','3M','All'].map(p => `
+            <button data-period="${p}" onclick="setTrendsPeriod('${p}')"
+                    class="rounded-full font-bold text-xs px-3 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-white min-h-[32px]"
+                    style="${p === _trendsPeriod
+                      ? 'background:#fff;color:var(--color-accent-dark);'
+                      : 'background:rgba(255,255,255,0.25);color:#fff;'}"
+                    aria-pressed="${p === _trendsPeriod}">
+              ${p}
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <!-- Chart card -->
+      <div class="rounded-2xl p-4 mb-4" style="${C.cardStyle}">
+        <div id="trends-chart-wrap">
+          <canvas id="trends-chart" height="120"></canvas>
+        </div>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="grid grid-cols-2 gap-3 mb-4" id="trends-stats"></div>
+    </div>`;
+
+  await loadTrendsChart();
+}
+
+async function setTrendsPeriod(period) {
+  _trendsPeriod = period;
+  document.querySelectorAll('[data-period]').forEach(btn => {
+    const active = btn.dataset.period === period;
+    btn.style.background = active ? '#fff' : 'rgba(255,255,255,0.25)';
+    btn.style.color = active ? 'var(--color-accent-dark)' : '#fff';
+    btn.setAttribute('aria-pressed', active);
+  });
+  await loadTrendsChart();
+}
+
+async function loadTrendsChart() {
+  const r = await Bridge.call('getWeightEntries');
+  if (!r.ok) return;
+
+  const all = (r.data || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const cutoffs = { '1W': 7, '1M': 30, '3M': 90 };
+  const days = cutoffs[_trendsPeriod];
+  const entries = days
+    ? all.filter(e => (Date.now() - new Date(e.date)) / 86400000 <= days)
+    : all;
+
+  const statsEl = document.getElementById('trends-stats');
+
+  if (!entries.length) {
+    document.getElementById('trends-chart-wrap').innerHTML =
+      `<p class="text-center py-8 text-sm" style="color:var(--color-text-disabled);">
+         No entries in this period. Log some weights first.</p>`;
+    if (statsEl) statsEl.innerHTML = '';
+    return;
+  }
+
+  const labels  = entries.map(e => {
+    const d = new Date(e.date);
+    return _trendsPeriod === '1W'
+      ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]
+      : d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  });
+  const weights = entries.map(e => e.weight);
+  const avg     = (weights.reduce((s, w) => s + w, 0) / weights.length).toFixed(1);
+
+  // Destroy previous chart if present
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+
+  const isDark   = document.documentElement.classList.contains('dark');
+  const tickColor = isDark ? '#fde68a' : '#92400e';
+  const accent   = getComputedStyle(document.documentElement)
+                     .getPropertyValue('--color-accent').trim() || '#f59e0b';
+  const accentDark = getComputedStyle(document.documentElement)
+                     .getPropertyValue('--color-accent-dark').trim() || '#d97706';
+
+  const ctx = document.getElementById('trends-chart')?.getContext('2d');
+  if (!ctx) return;
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+  gradient.addColorStop(0, accent + '66');
+  gradient.addColorStop(1, accent + '00');
+
+  activeChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Weight (lbs)',
+        data: weights,
+        borderColor: accent,
+        backgroundColor: gradient,
+        tension: 0.35,
+        pointRadius: entries.length <= 14 ? 4 : 2,
+        pointBackgroundColor: accent,
+        fill: true,
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isDark ? '#2a1a0a' : '#fff8ed',
+          titleColor: accentDark,
+          bodyColor: isDark ? '#fde68a' : '#92400e',
+          borderColor: accent,
+          borderWidth: 1,
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: tickColor, font: { size: 10 } },
+          grid: { display: false },
+        },
+        y: {
+          ticks: { color: tickColor, font: { size: 10 } },
+          grid: { color: isDark ? 'rgba(253,230,138,0.08)' : 'rgba(146,64,14,0.08)' },
+          title: { display: false },
+        }
+      }
+    }
+  });
+
+  // Stat cards
+  if (statsEl) {
+    const weekLosses = [];
+    for (let i = 7; i < weights.length; i++) {
+      weekLosses.push(weights[i - 7] - weights[i]);
+    }
+    const bestWeek = weekLosses.length
+      ? Math.max(...weekLosses).toFixed(1)
+      : '—';
+
+    statsEl.innerHTML = `
+      ${trendsStatCard('Avg this period', avg + ' lbs', 'var(--color-accent)')}
+      ${trendsStatCard('Best week loss', bestWeek !== '—' ? '−' + bestWeek + ' lbs' : '—', 'var(--color-accent2)')}`;
+  }
+}
+
+function trendsStatCard(label, value, color) {
+  return `
+    <div class="rounded-2xl p-4" style="${C.cardStyle}">
+      <div class="font-bold text-xs uppercase tracking-widest mb-2"
+           style="color:var(--color-text-secondary);">${label}</div>
+      <div class="font-black" style="font-size:1.3rem; color:${color};">${escHtml(value)}</div>
+    </div>`;
+}
+
 async function loadWeightTable() {
   const wrap = document.getElementById('weight-table-wrap');
   if (!wrap) return;
