@@ -102,7 +102,7 @@ function showError(containerId, message) {
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
       <span class="flex-1 text-sm">${escHtml(message)}</span>
-      <button onclick="this.closest('[role=alert]').remove()"
+      <button onclick="this.closest('[role=alert]')?.remove()"
               aria-label="Dismiss error"
               class="font-bold text-lg leading-none ml-1"
               style="color:var(--color-feedback-error);">
