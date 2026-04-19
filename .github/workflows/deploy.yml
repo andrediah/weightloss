@@ -56,12 +56,12 @@ jobs:
           username: ${{ secrets.DO_SSH_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
+            set -e
             tar -xzf /tmp/publish.tar.gz -C /opt/weightloss
             rm /tmp/publish.tar.gz
             chmod +x /opt/weightloss/WeightLossTracker
             sudo /usr/bin/systemctl restart weightloss.service
             sleep 8
-            if ! sudo /usr/bin/systemctl is-active --quiet weightloss.service; then
-              sudo /usr/bin/systemctl status weightloss.service --no-pager
-              exit 1
-            fi
+            state=$(sudo /usr/bin/systemctl is-active weightloss.service || true)
+            echo "service state: $state"
+            [ "$state" = "active" ]
