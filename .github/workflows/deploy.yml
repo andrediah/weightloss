@@ -37,7 +37,7 @@ jobs:
           username: ${{ secrets.DO_SSH_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           source: "publish.tar.gz"
-          target: "/opt/weightloss"
+          target: "/tmp"
 
       - name: Extract and restart service
         uses: appleboy/ssh-action@v1
@@ -47,8 +47,8 @@ jobs:
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
             mkdir -p /opt/weightloss-new
-            tar -xzf /opt/weightloss/publish.tar.gz -C /opt/weightloss-new
-            rm /opt/weightloss/publish.tar.gz
+            tar -xzf /tmp/publish.tar.gz -C /opt/weightloss-new
+            rm /tmp/publish.tar.gz
             rm -rf /opt/weightloss-old
             mv /opt/weightloss /opt/weightloss-old
             mv /opt/weightloss-new /opt/weightloss
