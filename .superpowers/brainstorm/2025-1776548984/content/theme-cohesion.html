@@ -1,0 +1,229 @@
+<h2>Option B — Base adapts to accent</h2>
+<p class="subtitle">Same dashboard, three theme combinations. The warm base stays for warm accents; neutral base activates for cool accents. Click a card to select your preferred approach.</p>
+
+<style>
+  .theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 24px; margin-top: 20px; }
+  .phone { background: #1a1a2e; border-radius: 28px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .phone-screen { border-radius: 22px; overflow: hidden; font-family: system-ui,-apple-system,sans-serif; }
+  .screen-label { text-align:center; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 10px; margin-bottom: 4px; }
+  .bottom-nav { display:flex; justify-content:space-around; padding: 10px 0 12px; }
+  .nav-item { text-align:center; }
+  .nav-item .icon { font-size: 18px; }
+  .nav-item .label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-card { border-radius: 14px; padding: 10px 6px; text-align:center; }
+  .stat-num { font-size: 17px; font-weight: 800; }
+  .stat-lbl { font-size: 8px; font-weight: 600; margin-top: 2px; }
+  .entry-row { display:flex; justify-content:space-between; padding: 6px 0; }
+  .entry-row + .entry-row { border-top: 1px solid; }
+</style>
+
+<div class="theme-grid">
+
+  <!-- Warm accent + warm base (Amber — reference) -->
+  <div class="card" data-choice="warm-warm" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#e8e0d0;border-radius:8px 8px 0 0;">
+      <div class="phone">
+        <div class="phone-screen" style="background:#fffbf0;">
+          <div style="background:linear-gradient(160deg,#fbbf24,#d97706);padding:16px 14px 20px;">
+            <div style="font-size:10px;font-weight:700;color:#78350f;letter-spacing:0.07em;text-transform:uppercase;">Good morning 🌅</div>
+            <div style="font-size:14px;font-weight:800;color:#1c0800;margin-top:2px;">You're crushing it!</div>
+            <div style="text-align:center;margin-top:12px;">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="8"/>
+                <circle cx="40" cy="40" r="32" fill="none" stroke="#fff" stroke-width="8" stroke-dasharray="201" stroke-dashoffset="16" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+              </svg>
+              <div style="margin-top:-52px;position:relative;text-align:center;">
+                <div style="font-size:16px;font-weight:900;color:#fff;">92%</div>
+                <div style="font-size:8px;color:#fde68a;font-weight:600;">to goal 🎯</div>
+              </div>
+              <div style="margin-top:20px;"></div>
+            </div>
+          </div>
+          <div style="padding:10px;background:#fffbf0;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#d97706;">192</div>
+                <div class="stat-lbl" style="color:#92400e;">lbs now</div>
+              </div>
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#7c3aed;">−23</div>
+                <div class="stat-lbl" style="color:#92400e;">lost 🔥</div>
+              </div>
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#059669;">190</div>
+                <div class="stat-lbl" style="color:#92400e;">goal 🏁</div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+              <div style="font-size:9px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Recent entries</div>
+              <div class="entry-row" style="border-color:#fef3c7;"><span style="font-size:11px;color:#1c0800;">Today</span><span style="font-size:11px;font-weight:700;color:#d97706;">192 lbs</span></div>
+              <div class="entry-row" style="border-color:#fef3c7;"><span style="font-size:11px;color:#92400e;">Yesterday</span><span style="font-size:11px;color:#6b7280;">192.8 lbs</span></div>
+            </div>
+          </div>
+          <div class="bottom-nav" style="background:#fffbf0;border-top:2px solid #fde68a;">
+            <div class="nav-item"><span class="icon">🏠</span><div class="label" style="color:#d97706;">Home</div></div>
+            <div class="nav-item"><span class="icon">➕</span><div class="label" style="color:#c4a86a;">Log</div></div>
+            <div class="nav-item"><span class="icon">📈</span><div class="label" style="color:#c4a86a;">Trends</div></div>
+            <div class="nav-item"><span class="icon">⚙️</span><div class="label" style="color:#c4a86a;">Settings</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>🟡 Amber — warm base</h3>
+      <p>The original. Warm off-white surfaces, amber header, amber labels. Fully cohesive — everything shares the same temperature.</p>
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+        <span style="background:#fef3c7;padding:2px 8px;border-radius:99px;font-size:10px;color:#92400e;">Base: warm #fffbf0</span>
+        <span style="background:#fef3c7;padding:2px 8px;border-radius:99px;font-size:10px;color:#92400e;">✅ No tension</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cool accent + warm base (Teal + warm — the problem) -->
+  <div class="card" data-choice="cool-warm" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#e8e0d0;border-radius:8px 8px 0 0;">
+      <div class="phone">
+        <div class="phone-screen" style="background:#fffbf0;">
+          <div style="background:linear-gradient(160deg,#34d399,#059669);padding:16px 14px 20px;">
+            <div style="font-size:10px;font-weight:700;color:#064e3b;letter-spacing:0.07em;text-transform:uppercase;">Good morning 🌅</div>
+            <div style="font-size:14px;font-weight:800;color:#022c22;margin-top:2px;">You're crushing it!</div>
+            <div style="text-align:center;margin-top:12px;">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="8"/>
+                <circle cx="40" cy="40" r="32" fill="none" stroke="#fff" stroke-width="8" stroke-dasharray="201" stroke-dashoffset="16" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+              </svg>
+              <div style="margin-top:-52px;position:relative;text-align:center;">
+                <div style="font-size:16px;font-weight:900;color:#fff;">92%</div>
+                <div style="font-size:8px;color:#a7f3d0;font-weight:600;">to goal 🎯</div>
+              </div>
+              <div style="margin-top:20px;"></div>
+            </div>
+          </div>
+          <!-- warm base beneath cool header — the clash -->
+          <div style="padding:10px;background:#fffbf0;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#059669;">192</div>
+                <div class="stat-lbl" style="color:#92400e;">lbs now</div>
+              </div>
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#7c3aed;">−23</div>
+                <div class="stat-lbl" style="color:#92400e;">lost 🔥</div>
+              </div>
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#059669;">190</div>
+                <div class="stat-lbl" style="color:#92400e;">goal 🏁</div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+              <div style="font-size:9px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Recent entries</div>
+              <div class="entry-row" style="border-color:#fef3c7;"><span style="font-size:11px;color:#1c0800;">Today</span><span style="font-size:11px;font-weight:700;color:#059669;">192 lbs</span></div>
+              <div class="entry-row" style="border-color:#fef3c7;"><span style="font-size:11px;color:#92400e;">Yesterday</span><span style="font-size:11px;color:#6b7280;">192.8 lbs</span></div>
+            </div>
+          </div>
+          <!-- warm nav border clashes with teal accent -->
+          <div class="bottom-nav" style="background:#fffbf0;border-top:2px solid #fde68a;">
+            <div class="nav-item"><span class="icon">🏠</span><div class="label" style="color:#059669;">Home</div></div>
+            <div class="nav-item"><span class="icon">➕</span><div class="label" style="color:#c4a86a;">Log</div></div>
+            <div class="nav-item"><span class="icon">📈</span><div class="label" style="color:#c4a86a;">Trends</div></div>
+            <div class="nav-item"><span class="icon">⚙️</span><div class="label" style="color:#c4a86a;">Settings</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>🟢 Teal — warm base (problem)</h3>
+      <p>Teal header on amber-tinted surfaces. The card labels are still warm brown, the nav border is still amber yellow — the two temperatures fight each other.</p>
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+        <span style="background:#fef3c7;padding:2px 8px;border-radius:99px;font-size:10px;color:#92400e;">Base: warm #fffbf0</span>
+        <span style="background:#fee2e2;padding:2px 8px;border-radius:99px;font-size:10px;color:#991b1b;">⚠️ Temperature clash</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cool accent + neutral base (Option B fix) -->
+  <div class="card" data-choice="cool-neutral" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#e0e8e0;border-radius:8px 8px 0 0;">
+      <div class="phone">
+        <div class="phone-screen" style="background:#f0fdf8;">
+          <div style="background:linear-gradient(160deg,#34d399,#059669);padding:16px 14px 20px;">
+            <div style="font-size:10px;font-weight:700;color:#064e3b;letter-spacing:0.07em;text-transform:uppercase;">Good morning 🌅</div>
+            <div style="font-size:14px;font-weight:800;color:#022c22;margin-top:2px;">You're crushing it!</div>
+            <div style="text-align:center;margin-top:12px;">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="8"/>
+                <circle cx="40" cy="40" r="32" fill="none" stroke="#fff" stroke-width="8" stroke-dasharray="201" stroke-dashoffset="16" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+              </svg>
+              <div style="margin-top:-52px;position:relative;text-align:center;">
+                <div style="font-size:16px;font-weight:900;color:#fff;">92%</div>
+                <div style="font-size:8px;color:#a7f3d0;font-weight:600;">to goal 🎯</div>
+              </div>
+              <div style="margin-top:20px;"></div>
+            </div>
+          </div>
+          <!-- neutral-tinted base matches teal header -->
+          <div style="padding:10px;background:#f0fdf8;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#059669;">192</div>
+                <div class="stat-lbl" style="color:#065f46;">lbs now</div>
+              </div>
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#7c3aed;">−23</div>
+                <div class="stat-lbl" style="color:#065f46;">lost 🔥</div>
+              </div>
+              <div class="stat-card" style="background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div class="stat-num" style="color:#059669;">190</div>
+                <div class="stat-lbl" style="color:#065f46;">goal 🏁</div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+              <div style="font-size:9px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Recent entries</div>
+              <div class="entry-row" style="border-color:#d1fae5;"><span style="font-size:11px;color:#022c22;">Today</span><span style="font-size:11px;font-weight:700;color:#059669;">192 lbs</span></div>
+              <div class="entry-row" style="border-color:#d1fae5;"><span style="font-size:11px;color:#065f46;">Yesterday</span><span style="font-size:11px;color:#6b7280;">192.8 lbs</span></div>
+            </div>
+          </div>
+          <!-- nav border now tinted to match teal -->
+          <div class="bottom-nav" style="background:#f0fdf8;border-top:2px solid #6ee7b7;">
+            <div class="nav-item"><span class="icon">🏠</span><div class="label" style="color:#059669;">Home</div></div>
+            <div class="nav-item"><span class="icon">➕</span><div class="label" style="color:#6ee7b7;">Log</div></div>
+            <div class="nav-item"><span class="icon">📈</span><div class="label" style="color:#6ee7b7;">Trends</div></div>
+            <div class="nav-item"><span class="icon">⚙️</span><div class="label" style="color:#6ee7b7;">Settings</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>🟢 Teal — accent-tinted base (Option B)</h3>
+      <p>The surface shifts to a very light teal tint (#f0fdf8). Card labels, borders, and nav all draw from the teal family. The whole screen speaks one temperature.</p>
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+        <span style="background:#d1fae5;padding:2px 8px;border-radius:99px;font-size:10px;color:#065f46;">Base: tinted #f0fdf8</span>
+        <span style="background:#d1fae5;padding:2px 8px;border-radius:99px;font-size:10px;color:#065f46;">✅ Cohesive</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:24px;" class="section">
+  <h3>How Option B works under the hood</h3>
+  <p class="subtitle">Each accent preset ships with a matching surface tint. Swapping accent also swaps the surface tint — one JS call, instant change.</p>
+  <div style="background:#1e1e2e;border-radius:12px;padding:16px;margin-top:12px;font-family:monospace;font-size:12px;color:#cdd6f4;overflow-x:auto;">
+    <div style="color:#89b4fa;">const</div> <span style="color:#cba6f7;">ACCENTS</span> = {<br>
+    &nbsp;&nbsp;<span style="color:#a6e3a1;">amber</span>: { accent: <span style="color:#f9e2af;">'#f59e0b'</span>, accentDark: <span style="color:#f9e2af;">'#d97706'</span>, surfaceTint: <span style="color:#f9e2af;">'#fffbf0'</span>, textSecondary: <span style="color:#f9e2af;">'#92400e'</span>, border: <span style="color:#f9e2af;">'#fde68a'</span> },<br>
+    &nbsp;&nbsp;<span style="color:#a6e3a1;">teal</span>: &nbsp; { accent: <span style="color:#f9e2af;">'#34d399'</span>, accentDark: <span style="color:#f9e2af;">'#059669'</span>, surfaceTint: <span style="color:#f9e2af;">'#f0fdf8'</span>, textSecondary: <span style="color:#f9e2af;">'#065f46'</span>, border: <span style="color:#f9e2af;">'#6ee7b7'</span> },<br>
+    &nbsp;&nbsp;<span style="color:#a6e3a1;">rose</span>: &nbsp; { accent: <span style="color:#f9e2af;">'#f472b6'</span>, accentDark: <span style="color:#f9e2af;">'#db2777'</span>, surfaceTint: <span style="color:#f9e2af;">'#fff0f6'</span>, textSecondary: <span style="color:#f9e2af;">'#9d174d'</span>, border: <span style="color:#f9e2af;">'#fbcfe8'</span> },<br>
+    &nbsp;&nbsp;<span style="color:#a6e3a1;">blue</span>: &nbsp; { accent: <span style="color:#f9e2af;">'#60a5fa'</span>, accentDark: <span style="color:#f9e2af;">'#2563eb'</span>, surfaceTint: <span style="color:#f9e2af;">'#eff6ff'</span>, textSecondary: <span style="color:#f9e2af;">'#1e40af'</span>, border: <span style="color:#f9e2af;">'#bfdbfe'</span> },<br>
+    &nbsp;&nbsp;<span style="color:#a6e3a1;">violet</span>: { accent: <span style="color:#f9e2af;">'#a78bfa'</span>, accentDark: <span style="color:#f9e2af;">'#7c3aed'</span>, surfaceTint: <span style="color:#f9e2af;">'#faf5ff'</span>, textSecondary: <span style="color:#f9e2af;">'#5b21b6'</span>, border: <span style="color:#f9e2af;">'#ddd6fe'</span> },<br>
+    };<br><br>
+    <span style="color:#89dceb;">function</span> <span style="color:#cba6f7;">applyAccent</span>(name) {<br>
+    &nbsp;&nbsp;<span style="color:#89dceb;">const</span> t = ACCENTS[name];<br>
+    &nbsp;&nbsp;document.documentElement.style.setProperty(<span style="color:#f9e2af;">'--color-accent'</span>, t.accent);<br>
+    &nbsp;&nbsp;document.documentElement.style.setProperty(<span style="color:#f9e2af;">'--color-accent-dark'</span>, t.accentDark);<br>
+    &nbsp;&nbsp;document.documentElement.style.setProperty(<span style="color:#f9e2af;">'--color-surface-primary'</span>, t.surfaceTint);<br>
+    &nbsp;&nbsp;document.documentElement.style.setProperty(<span style="color:#f9e2af;">'--color-text-secondary'</span>, t.textSecondary);<br>
+    &nbsp;&nbsp;document.documentElement.style.setProperty(<span style="color:#f9e2af;">'--color-border-default'</span>, t.border);<br>
+    &nbsp;&nbsp;localStorage.setItem(<span style="color:#f9e2af;">'wlt-accent'</span>, name);<br>
+    }
+  </div>
+</div>

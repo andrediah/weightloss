@@ -1,0 +1,150 @@
+<h2>3 Visual Design Directions</h2>
+<p class="subtitle">Each defines a distinct visual language for the full redesign — layout, colour, typography, and component style. Click to select your favourite.</p>
+
+<div class="cards">
+
+  <!-- Option A: Clinical Minimalist -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8f9fa;padding:20px;border-radius:8px 8px 0 0;">
+      <!-- Mini dashboard mockup -->
+      <div style="background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.08);font-family:system-ui,sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <span style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#6b7280;">Weight Loss Tracker</span>
+          <div style="width:28px;height:28px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:13px;">☀</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div style="background:#f9fafb;border-radius:8px;padding:10px;text-align:center;">
+            <div style="font-size:18px;font-weight:700;color:#111827;">192</div>
+            <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Current lbs</div>
+          </div>
+          <div style="background:#f9fafb;border-radius:8px;padding:10px;text-align:center;">
+            <div style="font-size:18px;font-weight:700;color:#059669;">−23</div>
+            <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Lost lbs</div>
+          </div>
+          <div style="background:#f9fafb;border-radius:8px;padding:10px;text-align:center;">
+            <div style="font-size:18px;font-weight:700;color:#111827;">92%</div>
+            <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">To goal</div>
+          </div>
+        </div>
+        <!-- Mini chart placeholder -->
+        <div style="height:48px;background:#f9fafb;border-radius:6px;display:flex;align-items:flex-end;padding:6px 8px;gap:3px;">
+          <div style="flex:1;background:#d1d5db;border-radius:2px 2px 0 0;height:80%"></div>
+          <div style="flex:1;background:#d1d5db;border-radius:2px 2px 0 0;height:65%"></div>
+          <div style="flex:1;background:#d1d5db;border-radius:2px 2px 0 0;height:70%"></div>
+          <div style="flex:1;background:#d1d5db;border-radius:2px 2px 0 0;height:55%"></div>
+          <div style="flex:1;background:#d1d5db;border-radius:2px 2px 0 0;height:60%"></div>
+          <div style="flex:1;background:#059669;border-radius:2px 2px 0 0;height:45%"></div>
+        </div>
+        <!-- Bottom nav -->
+        <div style="display:flex;justify-content:space-around;margin-top:12px;padding-top:10px;border-top:1px solid #f3f4f6;">
+          <div style="text-align:center;"><div style="font-size:14px;">⊞</div><div style="font-size:8px;color:#059669;font-weight:600;">Home</div></div>
+          <div style="text-align:center;"><div style="font-size:14px;">＋</div><div style="font-size:8px;color:#9ca3af;">Log</div></div>
+          <div style="text-align:center;"><div style="font-size:14px;">↗</div><div style="font-size:8px;color:#9ca3af;">Trends</div></div>
+          <div style="text-align:center;"><div style="font-size:14px;">⚙</div><div style="font-size:8px;color:#9ca3af;">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Clinical Minimalist</h3>
+      <p>White space–heavy, monochrome base with a single precise accent. Data-forward layout. Everything non-essential is removed. Feels trustworthy, serious, and precise — like a health dashboard that means business.</p>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <span style="background:#f3f4f6;padding:3px 8px;border-radius:99px;font-size:11px;color:#374151;">⬜ Off-white base</span>
+        <span style="background:#f3f4f6;padding:3px 8px;border-radius:99px;font-size:11px;color:#374151;">🟢 Single green accent</span>
+        <span style="background:#f3f4f6;padding:3px 8px;border-radius:99px;font-size:11px;color:#374151;">Aa Tight type scale</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: Warm Motivational -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:20px;border-radius:8px 8px 0 0;">
+      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);font-family:system-ui,sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#78350f;">Good morning! 🌅</div>
+            <div style="font-size:10px;color:#a78bfa;">You're doing great</div>
+          </div>
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:15px;">😊</div>
+        </div>
+        <!-- Progress ring mockup -->
+        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:12px;padding:14px;margin-bottom:10px;text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:#92400e;">192 <span style="font-size:14px;font-weight:400;color:#a78bfa;">lbs</span></div>
+          <div style="background:#e5e7eb;border-radius:99px;height:8px;margin:8px 0;">
+            <div style="background:linear-gradient(90deg,#f59e0b,#fbbf24);height:8px;border-radius:99px;width:92%"></div>
+          </div>
+          <div style="font-size:10px;color:#78350f;font-weight:600;">92% to your goal 🎯</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center;">
+            <div style="font-size:16px;font-weight:700;color:#92400e;">−23</div>
+            <div style="font-size:9px;color:#a78bfa;">lbs lost 🔥</div>
+          </div>
+          <div style="background:#f0fdf4;border-radius:10px;padding:10px;text-align:center;">
+            <div style="font-size:16px;font-weight:700;color:#15803d;">47 days</div>
+            <div style="font-size:9px;color:#a78bfa;">on track ⭐</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-around;padding-top:8px;border-top:1px solid #fde68a;">
+          <div style="text-align:center;"><div style="font-size:16px;">🏠</div><div style="font-size:8px;color:#f59e0b;font-weight:600;">Home</div></div>
+          <div style="text-align:center;"><div style="font-size:16px;">➕</div><div style="font-size:8px;color:#9ca3af;">Log</div></div>
+          <div style="text-align:center;"><div style="font-size:16px;">📈</div><div style="font-size:8px;color:#9ca3af;">Trends</div></div>
+          <div style="text-align:center;"><div style="font-size:16px;">⚙️</div><div style="font-size:8px;color:#9ca3af;">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Warm & Motivational</h3>
+      <p>Amber + violet accent palette, rounded cards, gradient progress bars, and encouraging microcopy. Celebrates progress with warmth. Feels like a supportive coach — personal, positive, and human. Best for staying motivated long-term.</p>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <span style="background:#fef3c7;padding:3px 8px;border-radius:99px;font-size:11px;color:#92400e;">🟡 Amber + violet</span>
+        <span style="background:#fef3c7;padding:3px 8px;border-radius:99px;font-size:11px;color:#92400e;">⬭ Rounded cards</span>
+        <span style="background:#fef3c7;padding:3px 8px;border-radius:99px;font-size:11px;color:#92400e;">🎯 Progress-first</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C: Bold Dark-First -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f0f0f;padding:20px;border-radius:8px 8px 0 0;">
+      <div style="background:#1a1a1a;border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:system-ui,sans-serif;border:1px solid #2a2a2a;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <span style="font-size:12px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:#c084fc;">WEIGHTLOSS</span>
+          <div style="width:28px;height:28px;border-radius:6px;background:#2a2a2a;display:flex;align-items:center;justify-content:center;font-size:13px;">🌙</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#581c87,#4c1d95);border-radius:10px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:11px;color:#e9d5ff;font-weight:500;letter-spacing:0.05em;margin-bottom:4px;">CURRENT WEIGHT</div>
+          <div style="font-size:32px;font-weight:800;color:#fff;line-height:1;">192 <span style="font-size:14px;font-weight:400;color:#c084fc;">lbs</span></div>
+          <div style="font-size:11px;color:#a78bfa;margin-top:4px;">↓ 23 lbs from start</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div style="background:#262626;border-radius:8px;padding:10px;border-left:3px solid #c084fc;">
+            <div style="font-size:16px;font-weight:800;color:#fff;">92%</div>
+            <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">to goal</div>
+          </div>
+          <div style="background:#262626;border-radius:8px;padding:10px;border-left:3px solid #34d399;">
+            <div style="font-size:16px;font-weight:800;color:#fff;">47d</div>
+            <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;">streak</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-around;padding-top:10px;border-top:1px solid #2a2a2a;">
+          <div style="text-align:center;"><div style="font-size:14px;">⊞</div><div style="font-size:8px;color:#c084fc;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Home</div></div>
+          <div style="text-align:center;"><div style="font-size:14px;">＋</div><div style="font-size:8px;color:#4b5563;">Log</div></div>
+          <div style="text-align:center;"><div style="font-size:14px;">↗</div><div style="font-size:8px;color:#4b5563;">Trends</div></div>
+          <div style="text-align:center;"><div style="font-size:14px;">⚙</div><div style="font-size:8px;color:#4b5563;">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Bold Dark-First</h3>
+      <p>Near-black surfaces, electric purple accent, sharp geometry and high-contrast type. Dark mode is the primary experience. Feels premium, focused, and modern — like a serious training app. Light mode is a deliberate inversion, not an afterthought.</p>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <span style="background:#1f1f2e;padding:3px 8px;border-radius:99px;font-size:11px;color:#c084fc;">🟣 Purple + emerald</span>
+        <span style="background:#1f1f2e;padding:3px 8px;border-radius:99px;font-size:11px;color:#c084fc;">◼ Dark primary</span>
+        <span style="background:#1f1f2e;padding:3px 8px;border-radius:99px;font-size:11px;color:#c084fc;">Aa Bold type</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:24px;">These are direction concepts — not final designs. Picking one doesn't lock in every detail. Click your favourite, then tell me what you like or want to change.</p>

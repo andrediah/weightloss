@@ -1,0 +1,316 @@
+<h2>Full Visual Design — Warm & Motivational</h2>
+<p class="subtitle">4 screens with the complete visual language. Click any screen to select it, or just review and tell me what you'd change.</p>
+
+<style>
+  .phone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-top: 16px; }
+  .phone { background: #1a1a2e; border-radius: 28px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .phone-screen { background: #fffbf0; border-radius: 22px; overflow: hidden; font-family: system-ui,-apple-system,sans-serif; }
+  .phone-screen.dark-screen { background: #1c1008; }
+  .screen-label { text-align:center; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 10px; margin-bottom: 4px; }
+
+  /* shared */
+  .w-amber { color: #d97706; }
+  .w-violet { color: #7c3aed; }
+  .w-text { color: #1c0f00; }
+  .w-muted { color: #92400e; }
+  .w-light { color: #fbbf24; }
+  .w-surface { background: #fff8ed; }
+  .w-card { background: #fff; border-radius: 16px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .bottom-nav { display:flex; justify-content:space-around; padding: 10px 0 12px; border-top: 2px solid #fde68a; background: #fffbf0; }
+  .nav-item { text-align:center; }
+  .nav-item .icon { font-size: 18px; }
+  .nav-item .label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .nav-active .label { color: #d97706; }
+  .nav-inactive .label { color: #c4a86a; }
+</style>
+
+<div class="phone-grid">
+
+  <!-- Screen 1: Dashboard -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <!-- Header -->
+        <div style="background:linear-gradient(160deg,#fbbf24 0%,#f59e0b 60%,#d97706 100%);padding:20px 16px 24px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#78350f;letter-spacing:0.08em;text-transform:uppercase;">Good morning 🌅</div>
+              <div style="font-size:17px;font-weight:800;color:#1c0800;margin-top:2px;">You're crushing it!</div>
+            </div>
+            <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">😊</div>
+          </div>
+          <!-- Progress ring area -->
+          <div style="margin-top:16px;text-align:center;">
+            <div style="position:relative;display:inline-block;">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="10"/>
+                <circle cx="55" cy="55" r="46" fill="none" stroke="#fff" stroke-width="10"
+                  stroke-dasharray="289" stroke-dashoffset="23"
+                  stroke-linecap="round" transform="rotate(-90 55 55)"/>
+              </svg>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                <div style="font-size:22px;font-weight:900;color:#fff;">92%</div>
+                <div style="font-size:9px;font-weight:600;color:#fde68a;">to goal 🎯</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Stat cards -->
+        <div style="padding:14px;background:#fffbf0;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+            <div class="w-card" style="text-align:center;padding:10px 6px;">
+              <div style="font-size:17px;font-weight:800;color:#d97706;">192</div>
+              <div style="font-size:8px;color:#92400e;font-weight:600;">lbs now</div>
+            </div>
+            <div class="w-card" style="text-align:center;padding:10px 6px;">
+              <div style="font-size:17px;font-weight:800;color:#7c3aed;">−23</div>
+              <div style="font-size:8px;color:#92400e;font-weight:600;">lbs lost 🔥</div>
+            </div>
+            <div class="w-card" style="text-align:center;padding:10px 6px;">
+              <div style="font-size:17px;font-weight:800;color:#059669;">190</div>
+              <div style="font-size:8px;color:#92400e;font-weight:600;">goal 🏁</div>
+            </div>
+          </div>
+          <!-- Recent log -->
+          <div class="w-card" style="padding:12px;">
+            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Recent entries</div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #fef3c7;">
+              <span style="font-size:12px;color:#1c0800;">Today</span>
+              <span style="font-size:12px;font-weight:700;color:#d97706;">192 lbs</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #fef3c7;">
+              <span style="font-size:12px;color:#92400e;">Yesterday</span>
+              <span style="font-size:12px;font-weight:600;color:#6b7280;">192.8 lbs</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;">
+              <span style="font-size:12px;color:#92400e;">2 days ago</span>
+              <span style="font-size:12px;font-weight:600;color:#6b7280;">193.2 lbs</span>
+            </div>
+          </div>
+        </div>
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <div class="nav-item nav-active"><div class="icon">🏠</div><div class="label">Home</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">➕</div><div class="label">Log</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">📈</div><div class="label">Trends</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">⚙️</div><div class="label">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">🏠 Dashboard</div>
+  </div>
+
+  <!-- Screen 2: Log Entry -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div style="background:linear-gradient(160deg,#a78bfa 0%,#7c3aed 100%);padding:20px 16px 28px;">
+          <div style="font-size:11px;font-weight:700;color:#ede9fe;letter-spacing:0.08em;text-transform:uppercase;">Log your weight</div>
+          <div style="font-size:17px;font-weight:800;color:#fff;margin-top:2px;">How'd you do today? 💪</div>
+        </div>
+        <div style="padding:16px;background:#fffbf0;margin-top:-12px;border-radius:16px 16px 0 0;">
+          <!-- Date picker strip -->
+          <div style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;">
+            <div style="min-width:44px;text-align:center;padding:8px 4px;border-radius:10px;background:#7c3aed;">
+              <div style="font-size:9px;color:#ede9fe;font-weight:600;">FRI</div>
+              <div style="font-size:14px;font-weight:800;color:#fff;">18</div>
+            </div>
+            <div style="min-width:44px;text-align:center;padding:8px 4px;border-radius:10px;background:#fff;border:1px solid #fde68a;">
+              <div style="font-size:9px;color:#92400e;font-weight:600;">SAT</div>
+              <div style="font-size:14px;font-weight:800;color:#d97706;">19</div>
+            </div>
+            <div style="min-width:44px;text-align:center;padding:8px 4px;border-radius:10px;background:#fff;border:1px solid #fde68a;">
+              <div style="font-size:9px;color:#92400e;font-weight:600;">SUN</div>
+              <div style="font-size:14px;font-weight:700;color:#6b7280;">20</div>
+            </div>
+            <div style="min-width:44px;text-align:center;padding:8px 4px;border-radius:10px;background:#fff;border:1px solid #fde68a;">
+              <div style="font-size:9px;color:#92400e;font-weight:600;">MON</div>
+              <div style="font-size:14px;font-weight:700;color:#6b7280;">21</div>
+            </div>
+          </div>
+          <!-- Weight input -->
+          <div class="w-card" style="text-align:center;padding:20px 16px;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Weight (lbs)</div>
+            <div style="font-size:48px;font-weight:900;color:#d97706;line-height:1;">192<span style="font-size:20px;color:#a78bfa;">.0</span></div>
+            <div style="display:flex;justify-content:center;gap:16px;margin-top:14px;">
+              <button style="width:44px;height:44px;border-radius:50%;background:#fef3c7;border:none;font-size:22px;font-weight:700;color:#d97706;cursor:pointer;">−</button>
+              <button style="width:44px;height:44px;border-radius:50%;background:#fef3c7;border:none;font-size:22px;font-weight:700;color:#d97706;cursor:pointer;">+</button>
+            </div>
+          </div>
+          <!-- Notes -->
+          <div class="w-card" style="margin-bottom:12px;">
+            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Note (optional) 📝</div>
+            <div style="background:#fffbf0;border-radius:8px;padding:10px;font-size:12px;color:#c4a86a;font-style:italic;">Morning weigh-in, after breakfast...</div>
+          </div>
+          <!-- Save button -->
+          <button style="width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:14px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;letter-spacing:0.03em;">Save Entry ✓</button>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item nav-inactive"><div class="icon">🏠</div><div class="label">Home</div></div>
+          <div class="nav-item nav-active"><div class="icon">➕</div><div class="label">Log</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">📈</div><div class="label">Trends</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">⚙️</div><div class="label">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">➕ Log Entry</div>
+  </div>
+
+  <!-- Screen 3: Trends -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div style="background:linear-gradient(160deg,#fbbf24,#f59e0b);padding:20px 16px 24px;">
+          <div style="font-size:11px;font-weight:700;color:#78350f;letter-spacing:0.08em;text-transform:uppercase;">Your trends 📈</div>
+          <div style="font-size:17px;font-weight:800;color:#1c0800;margin-top:2px;">Great progress this month!</div>
+          <!-- Period tabs -->
+          <div style="display:flex;gap:6px;margin-top:14px;">
+            <div style="padding:5px 12px;border-radius:99px;background:#fff;font-size:10px;font-weight:700;color:#d97706;">1W</div>
+            <div style="padding:5px 12px;border-radius:99px;background:rgba(255,255,255,0.3);font-size:10px;font-weight:700;color:#78350f;">1M</div>
+            <div style="padding:5px 12px;border-radius:99px;background:rgba(255,255,255,0.3);font-size:10px;font-weight:700;color:#78350f;">3M</div>
+            <div style="padding:5px 12px;border-radius:99px;background:rgba(255,255,255,0.3);font-size:10px;font-weight:700;color:#78350f;">All</div>
+          </div>
+        </div>
+        <div style="padding:14px;background:#fffbf0;margin-top:-12px;border-radius:16px 16px 0 0;">
+          <!-- Chart placeholder -->
+          <div class="w-card" style="padding:14px;margin-bottom:12px;">
+            <div style="display:flex;align-items:flex-end;gap:5px;height:80px;padding:0 4px;">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:72%;opacity:0.5"></div>
+                <div style="font-size:7px;color:#92400e;">M</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:68%;opacity:0.6"></div>
+                <div style="font-size:7px;color:#92400e;">T</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:75%;opacity:0.6"></div>
+                <div style="font-size:7px;color:#92400e;">W</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:62%;opacity:0.7"></div>
+                <div style="font-size:7px;color:#92400e;">T</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:58%;opacity:0.8"></div>
+                <div style="font-size:7px;color:#92400e;">F</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:54%;opacity:0.9"></div>
+                <div style="font-size:7px;color:#92400e;">S</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div style="flex:1;width:100%;background:linear-gradient(180deg,#fbbf24,#f59e0b);border-radius:4px 4px 0 0;height:50%"></div>
+                <div style="font-size:7px;color:#d97706;font-weight:700;">S</div>
+              </div>
+            </div>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid #fef3c7;display:flex;justify-content:space-between;">
+              <span style="font-size:9px;color:#92400e;">215 lbs</span>
+              <span style="font-size:9px;color:#d97706;font-weight:700;">📉 Down 23 lbs</span>
+              <span style="font-size:9px;color:#92400e;">192 lbs</span>
+            </div>
+          </div>
+          <!-- Stats row -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="w-card" style="padding:12px;">
+              <div style="font-size:10px;color:#92400e;font-weight:600;margin-bottom:4px;">Avg this week</div>
+              <div style="font-size:18px;font-weight:800;color:#d97706;">192.4 <span style="font-size:11px;font-weight:400;color:#a78bfa;">lbs</span></div>
+            </div>
+            <div class="w-card" style="padding:12px;">
+              <div style="font-size:10px;color:#92400e;font-weight:600;margin-bottom:4px;">Best week loss</div>
+              <div style="font-size:18px;font-weight:800;color:#7c3aed;">−1.8 <span style="font-size:11px;font-weight:400;color:#a78bfa;">lbs</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item nav-inactive"><div class="icon">🏠</div><div class="label">Home</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">➕</div><div class="label">Log</div></div>
+          <div class="nav-item nav-active"><div class="icon">📈</div><div class="label">Trends</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">⚙️</div><div class="label">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">📈 Trends</div>
+  </div>
+
+  <!-- Screen 4: Settings -->
+  <div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div style="background:linear-gradient(160deg,#fbbf24,#f59e0b);padding:20px 16px 24px;">
+          <div style="font-size:11px;font-weight:700;color:#78350f;letter-spacing:0.08em;text-transform:uppercase;">Settings ⚙️</div>
+          <div style="font-size:17px;font-weight:800;color:#1c0800;margin-top:2px;">Make it yours</div>
+        </div>
+        <div style="padding:14px;background:#fffbf0;margin-top:-12px;border-radius:16px 16px 0 0;">
+          <!-- Theme accent picker -->
+          <div class="w-card" style="margin-bottom:10px;">
+            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">🎨 Accent colour</div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#d97706);border:3px solid #d97706;box-shadow:0 0 0 2px #fffbf0;"></div>
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#34d399,#059669);"></div>
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f472b6,#db2777);"></div>
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#60a5fa,#2563eb);"></div>
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#7c3aed);"></div>
+            </div>
+          </div>
+          <!-- Dark mode toggle -->
+          <div class="w-card" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#1c0800;">🌙 Dark mode</div>
+              <div style="font-size:10px;color:#92400e;">Warm dark theme</div>
+            </div>
+            <div style="width:44px;height:26px;border-radius:13px;background:#fde68a;position:relative;">
+              <div style="width:22px;height:22px;border-radius:50%;background:#d97706;position:absolute;top:2px;right:2px;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
+            </div>
+          </div>
+          <!-- Goal setting -->
+          <div class="w-card" style="margin-bottom:10px;">
+            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">🏁 Goal weight</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-size:24px;font-weight:800;color:#d97706;">190 <span style="font-size:12px;font-weight:400;color:#a78bfa;">lbs</span></div>
+              <button style="padding:6px 14px;background:#fef3c7;border:none;border-radius:99px;font-size:11px;font-weight:700;color:#d97706;cursor:pointer;">Edit</button>
+            </div>
+          </div>
+          <!-- Units -->
+          <div class="w-card" style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:13px;font-weight:700;color:#1c0800;">⚖️ Units</div>
+            <div style="display:flex;gap:0;border-radius:99px;overflow:hidden;border:1.5px solid #fde68a;">
+              <div style="padding:5px 12px;background:#d97706;font-size:10px;font-weight:700;color:#fff;">lbs</div>
+              <div style="padding:5px 12px;background:#fff;font-size:10px;font-weight:700;color:#92400e;">kg</div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-nav">
+          <div class="nav-item nav-inactive"><div class="icon">🏠</div><div class="label">Home</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">➕</div><div class="label">Log</div></div>
+          <div class="nav-item nav-inactive"><div class="icon">📈</div><div class="label">Trends</div></div>
+          <div class="nav-item nav-active"><div class="icon">⚙️</div><div class="label">Settings</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">⚙️ Settings</div>
+  </div>
+
+</div>
+
+<div style="margin-top:28px;" class="section">
+  <h3>Visual language summary</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:10px;">
+    <div class="w-card" style="border-left:4px solid #fbbf24;">
+      <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Palette</div>
+      <div style="font-size:12px;color:#1c0800;">Amber primary · Violet accent · Warm off-white base · 5 swappable accent presets</div>
+    </div>
+    <div class="w-card" style="border-left:4px solid #7c3aed;">
+      <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Typography</div>
+      <div style="font-size:12px;color:#1c0800;">System UI · 900 weight for hero numbers · Uppercase labels · Sentence case buttons</div>
+    </div>
+    <div class="w-card" style="border-left:4px solid #34d399;">
+      <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Components</div>
+      <div style="font-size:12px;color:#1c0800;">16px radius cards · Gradient headers · Emoji navigation icons · Pill toggles</div>
+    </div>
+    <div class="w-card" style="border-left:4px solid #f472b6;">
+      <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Dark mode</div>
+      <div style="font-size:12px;color:#1c0800;">Warm dark (brown-black base) · Amber preserved · Not a cold inversion</div>
+    </div>
+  </div>
+</div>

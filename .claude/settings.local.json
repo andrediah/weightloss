@@ -7,7 +7,32 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -E \"\\\\.\\(md|txt|doc|docx|pdf\\)$\")",
+      "Bash(dotnet ef:*)",
+      "Bash(taskkill //PID 19904 //F)",
+      "Bash(dotnet run:*)",
+      "Bash(curl -s http://localhost:5000/js/app.js)",
+      "Bash(taskkill //F //IM WeightLossTracker.exe)",
+      "Bash(git *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet --version)",
+      "Bash(xargs grep *)",
+      "Bash(dotnet tool list *)",
+      "Bash(pkill -f \"dotnet.*WeightLossTracker\")",
+      "Read(//c/Users/Andre/AppData/Roaming/**)",
+      "Read(//c/Users/Andre/AppData/Local/WeightLossTracker//**)",
+      "Bash(curl -s http://localhost:5000/api/auth/me)",
+      "Bash(curl *)",
+      "Bash(grep -n \"dummy\\\\|2a\\\\$12\\\\$\" WeightLossTracker/Program.cs)",
+      "Bash(grep -n \"appsettings\\\\|\\\\.json\" WeightLossTracker/WeightLossTracker.csproj WeightLossTracker/appsettings.example.json)",
+      "Bash(ls /C/Development/Weightloss/WeightLossTracker/appsettings*.json)",
+      "Bash(awk '/app\\\\.Map\\(Post|Get|Put|Delete\\)/{route=$0; found=0} /RequireAuthorization/{found=1} /^}\\\\\\)/{if\\(!found && route !~ \"auth|admin\"\\) print NR\": \"route; route=\"\"; found=0}' WeightLossTracker/Program.cs)",
+      "Bash(node -e ' *)",
+      "Bash(taskkill /F /IM WeightLossTracker.exe)",
+      "Bash(bash *)",
+      "Bash(awk 'NR>=302 && NR<=983' /c/Development/Weightloss/WeightLossTracker/wwwroot/js/app.js)"
     ]
   }
 }
