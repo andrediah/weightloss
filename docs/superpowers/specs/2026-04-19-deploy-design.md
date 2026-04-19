@@ -31,53 +31,95 @@ Digital Ocean Droplet (Ubuntu)
 
 ---
 
-## GitHub Actions Workflow
+## Platform Setup: Step-by-Step
 
-**File:** `.github/workflows/deploy.yml`  
-**Trigger:** `push` to `main`
+### Platform 1: Local Machine (one-time)
 
-**Steps:**
-1. Checkout code
-2. Setup .NET 10
-3. Run `WeightLossTracker.Tests` — abort on failure
-4. `dotnet publish -c Release -r linux-x64 --self-contained true`
-5. SSH into Droplet, ensure `/opt/weightloss/` exists
-6. `rsync` published output to `/opt/weightloss/`
-7. `systemctl restart weightloss.service`
-8. `systemctl is-active weightloss.service` — fail the Action if not running
+**Goal:** Generate a dedicated deploy SSH keypair that GitHub Actions will use to connect to the Droplet.
 
-**GitHub Secrets (repo Settings → Secrets → Actions):**
+1. Open a terminal and run:
+   ```bash
+   ssh-keygen -t ed25519 -C "weightloss-deploy" -f ~/.ssh/weightloss_deploy
+   ```
+   When prompted for a passphrase, press Enter (no passphrase — Actions needs unattended access).
 
-| Secret | Value |
-|--------|-------|
-| `DO_SSH_HOST` | Droplet IP address |
-| `DO_SSH_USER` | `weightloss` (deploy user) |
-| `DO_SSH_KEY` | Private key of dedicated deploy SSH keypair |
+2. This produces two files:
+   - `~/.ssh/weightloss_deploy` — **private key** (goes into GitHub Secrets)
+   - `~/.ssh/weightloss_deploy.pub` — **public key** (goes onto the Droplet)
+
+3. Copy the public key to your clipboard:
+   ```bash
+   cat ~/.ssh/weightloss_deploy.pub
+   ```
+   Keep this terminal open — you'll need both values in the steps below.
 
 ---
 
-## Droplet Setup (one-time manual)
+### Platform 2: Digital Ocean (Droplet provisioning)
 
-### Users & Directories
+**Goal:** Create an Ubuntu Droplet with your personal SSH access.
 
+1. Log in to [digitalocean.com](https://digitalocean.com).
+2. Click **Create → Droplets**.
+3. Choose:
+   - **Image:** Ubuntu 24.04 LTS
+   - **Size:** Basic, $6/mo (1 vCPU, 1GB RAM) is sufficient
+   - **Region:** Choose closest to you
+   - **Authentication:** Add your **personal** SSH key (not the deploy key — this is for your own admin access)
+4. Click **Create Droplet**. Note the assigned IP address.
+
+---
+
+### Platform 3: Droplet (server configuration, run as root via SSH)
+
+**Goal:** Install required software, create the app user, configure directories, systemd, nginx, and TLS.
+
+Connect to your Droplet:
 ```bash
-useradd --system --no-create-home weightloss
+ssh root@YOUR_DROPLET_IP
+```
+
+#### Step 1 — System updates
+```bash
+apt update && apt upgrade -y
+```
+
+#### Step 2 — Install nginx and Certbot
+```bash
+apt install -y nginx certbot python3-certbot-nginx
+```
+
+#### Step 3 — Create the app user and directories
+```bash
+useradd --system --shell /usr/sbin/nologin weightloss
 mkdir -p /opt/weightloss /var/lib/weightloss
 chown weightloss:weightloss /opt/weightloss /var/lib/weightloss
 chmod 750 /var/lib/weightloss
+chmod 755 /opt/weightloss
 ```
 
-- App runs as the `weightloss` system user (no login shell, no home directory)
-- SQLite file lives in `/var/lib/weightloss/` — separate from app binaries, `chmod 750` so only the app user can access it
-- Deploy SSH public key added to `weightloss` user's `~/.ssh/authorized_keys`
-- `weightloss` user granted passwordless `sudo` for `systemctl restart weightloss.service` only (via `/etc/sudoers.d/weightloss`)
+#### Step 4 — Add the deploy SSH public key
+```bash
+mkdir -p /home/weightloss/.ssh
+echo "PASTE_PUBLIC_KEY_HERE" >> /home/weightloss/.ssh/authorized_keys
+chown -R weightloss:weightloss /home/weightloss/.ssh
+chmod 700 /home/weightloss/.ssh
+chmod 600 /home/weightloss/.ssh/authorized_keys
+```
+Replace `PASTE_PUBLIC_KEY_HERE` with the contents of `~/.ssh/weightloss_deploy.pub` from your local machine.
 
-### systemd Unit
+> Note: The `weightloss` user has no login shell but CAN be used for SSH file transfers and running remote commands via GitHub Actions.
 
-**File:** `/etc/systemd/system/weightloss.service`  
-**Owner:** `root`, **Mode:** `600`
+#### Step 5 — Grant passwordless sudo for service restart only
+```bash
+echo "weightloss ALL=(ALL) NOPASSWD: /bin/systemctl restart weightloss.service, /bin/systemctl is-active weightloss.service" \
+  > /etc/sudoers.d/weightloss
+chmod 440 /etc/sudoers.d/weightloss
+```
 
-```ini
+#### Step 6 — Create the systemd service unit
+```bash
+cat > /etc/systemd/system/weightloss.service << 'EOF'
 [Unit]
 Description=WeightLossTracker
 After=network.target
@@ -97,35 +139,137 @@ Environment=ConnectionStrings__DefaultConnection=Data Source=/var/lib/weightloss
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+chmod 600 /etc/systemd/system/weightloss.service
+chown root:root /etc/systemd/system/weightloss.service
+systemctl daemon-reload
+systemctl enable weightloss.service
 ```
 
-Secrets are set here only — not in `appsettings.json` or the repository. The unit file is `root:root 600`.
+Replace `REPLACE_WITH_ACTUAL_VALUE` with your real Gemini API key and Admin API key **before** saving.
 
-### nginx Reverse Proxy
+#### Step 7 — Configure nginx
+```bash
+cat > /etc/nginx/sites-available/weightloss << 'EOF'
+server {
+    listen 80;
+    server_name YOUR_DOMAIN_HERE;
 
-- Listens on port 80 and 443
-- Redirects HTTP → HTTPS
-- Forwards HTTPS traffic to `http://localhost:5000`
-- TLS certificate provisioned via Certbot (Let's Encrypt)
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF
+
+ln -s /etc/nginx/sites-available/weightloss /etc/nginx/sites-enabled/weightloss
+nginx -t && systemctl reload nginx
+```
+Replace `YOUR_DOMAIN_HERE` with your actual domain (e.g. `tracker.example.com`). If you don't have a domain yet, use the Droplet IP temporarily and skip Step 8.
+
+#### Step 8 — Provision TLS certificate (requires domain pointing to Droplet IP)
+First, set your domain's DNS A record to the Droplet IP and wait for it to propagate (can take up to 30 minutes). Then:
+```bash
+certbot --nginx -d YOUR_DOMAIN_HERE --non-interactive --agree-tos -m YOUR_EMAIL
+```
+Certbot automatically updates the nginx config and sets up auto-renewal.
+
+#### Step 9 — Open firewall ports
+```bash
+ufw allow OpenSSH
+ufw allow 'Nginx Full'
+ufw enable
+```
 
 ---
 
-## Security Practices
+### Platform 4: GitHub Repository (secrets and workflow)
 
-| Concern | Mitigation |
-|---------|-----------|
-| App runs as root | Dedicated `weightloss` system user, no login shell |
-| SQLite accessible by other users | `/var/lib/weightloss/` is `chmod 750`, owned by `weightloss` |
-| Secrets in repository | All secrets in systemd unit file (`root:root 600`), not in `appsettings.json` |
-| Personal SSH key used for deploy | Dedicated deploy SSH keypair stored as GitHub Secret |
-| HTTP traffic | nginx forces HTTPS redirect; Let's Encrypt cert auto-renews |
-| Bad deploy reaches server | Tests must pass before deploy; health check verifies service starts |
+**Goal:** Store the deploy credentials and add the Actions workflow file.
+
+#### Step 1 — Add GitHub Secrets
+1. Go to your repo on GitHub.
+2. Click **Settings → Secrets and variables → Actions → New repository secret**.
+3. Add these three secrets:
+
+| Name | Value |
+|------|-------|
+| `DO_SSH_HOST` | Your Droplet IP address |
+| `DO_SSH_USER` | `weightloss` |
+| `DO_SSH_KEY` | Full contents of `~/.ssh/weightloss_deploy` (the private key, including `-----BEGIN...` and `-----END...` lines) |
+
+#### Step 2 — Add the workflow file
+Create `.github/workflows/deploy.yml` in your repository (this is created as part of implementation — listed here for reference):
+
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Run tests
+        run: dotnet test WeightLossTracker.Tests/WeightLossTracker.Tests.csproj --configuration Release
+
+      - name: Publish
+        run: dotnet publish WeightLossTracker/WeightLossTracker.csproj -c Release -r linux-x64 --self-contained true -o ./publish
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: mkdir -p /opt/weightloss
+
+      - name: Copy files
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "./publish/*"
+          target: "/opt/weightloss"
+          strip_components: 1
+
+      - name: Restart and verify service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            sudo systemctl restart weightloss.service
+            sleep 3
+            sudo systemctl is-active --quiet weightloss.service || exit 1
+```
 
 ---
 
-## appsettings.json Changes Required
+### Platform 5: Codebase (appsettings.json cleanup)
 
-Remove hardcoded secrets before deployment:
+**Goal:** Remove hardcoded secrets from the repository before first deploy.
+
+In `WeightLossTracker/appsettings.json`, blank out the API key values:
 
 ```json
 "Gemini": {
@@ -138,7 +282,21 @@ Remove hardcoded secrets before deployment:
 }
 ```
 
-Values will be injected via environment variables at runtime. ASP.NET Core's configuration system automatically maps `Gemini__ApiKey` env var to `Gemini:ApiKey` in config.
+ASP.NET Core's configuration system automatically maps environment variables using double-underscore as a separator, so `Gemini__ApiKey` (set in the systemd unit) resolves to `Gemini:ApiKey` at runtime. No code changes needed.
+
+---
+
+## Security Practices
+
+| Concern | Mitigation |
+|---------|-----------|
+| App runs as root | Dedicated `weightloss` system user, no login shell |
+| SQLite accessible by other users | `/var/lib/weightloss/` is `chmod 750`, owned by `weightloss` |
+| Secrets in repository | All secrets in systemd unit file (`root:root 600`), not in `appsettings.json` |
+| Personal SSH key used for deploy | Dedicated deploy SSH keypair, private key stored as GitHub Secret only |
+| HTTP traffic | nginx forces HTTPS redirect; Let's Encrypt cert auto-renews via Certbot |
+| Bad deploy reaches server | Tests must pass before deploy; health check verifies service starts |
+| Over-privileged deploy user | `weightloss` can only sudo two specific systemctl commands, nothing else |
 
 ---
 
@@ -147,6 +305,6 @@ Values will be injected via environment variables at runtime. ASP.NET Core's con
 1. Developer merges PR to `main`
 2. GitHub Actions triggers automatically
 3. Tests run — deploy aborts if any fail
-4. App is published and synced to `/opt/weightloss/`
-5. Service restarts; health check confirms it's active
-6. GitHub Actions reports success or failure
+4. App is published (self-contained linux-x64 binary) and synced to `/opt/weightloss/`
+5. Service restarts; 3-second wait; health check confirms it's active
+6. GitHub Actions reports success or failure in the repo's Actions tab
