@@ -30,6 +30,14 @@ jobs:
       - name: Archive published output
         run: tar -czf publish.tar.gz -C ./publish .
 
+      - name: Test SSH connectivity
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: echo "SSH connection successful as $(whoami)"
+
       - name: Copy archive to Droplet
         uses: appleboy/scp-action@v1
         with:
@@ -38,6 +46,7 @@ jobs:
           key: ${{ secrets.DO_SSH_KEY }}
           source: "publish.tar.gz"
           target: "/tmp"
+          debug: true
 
       - name: Extract and restart service
         uses: appleboy/ssh-action@v1
