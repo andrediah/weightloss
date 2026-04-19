@@ -1,5 +1,6 @@
-## Secrets — never commit real appsettings
-**/appsettings.json
+## appsettings — base config is committed with blank secrets (injected via env vars at runtime)
+## Development overrides are gitignored to prevent accidental secret leaks
+!**/appsettings.json
 !**/appsettings.example.json
 **/appsettings.Development.json
 
