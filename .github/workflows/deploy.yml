@@ -39,14 +39,15 @@ jobs:
           script: echo "SSH connection successful as $(whoami)"
 
       - name: Copy archive to Droplet
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DO_SSH_HOST }}
-          username: ${{ secrets.DO_SSH_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          source: "publish.tar.gz"
-          target: "/tmp"
-          debug: true
+        run: |
+          echo "${{ secrets.DO_SSH_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=30 \
+            ${{ secrets.DO_SSH_USER }}@${{ secrets.DO_SSH_HOST }} \
+            "cat > /tmp/publish.tar.gz" < publish.tar.gz
+          rm /tmp/deploy_key
 
       - name: Extract and restart service
         uses: appleboy/ssh-action@v1
