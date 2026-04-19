@@ -602,7 +602,7 @@ async function saveLogEntry() {
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
-  const r = await Bridge.call('saveWeight', { weight, notes });
+  const r = await Bridge.call('saveWeight', { weight, notes, date: _logSelectedDate });
 
   btn.disabled = false;
   btn.textContent = 'Save Entry ✓';
