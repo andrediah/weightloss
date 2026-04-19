@@ -69,7 +69,8 @@ chmod 750 /var/lib/weightloss
 
 - App runs as the `weightloss` system user (no login shell, no home directory)
 - SQLite file lives in `/var/lib/weightloss/` — separate from app binaries, `chmod 750` so only the app user can access it
-- Deploy SSH public key added to `weightloss` user's `~/.ssh/authorized_keys` (or root's, with sudo rules for service restart)
+- Deploy SSH public key added to `weightloss` user's `~/.ssh/authorized_keys`
+- `weightloss` user granted passwordless `sudo` for `systemctl restart weightloss.service` only (via `/etc/sudoers.d/weightloss`)
 
 ### systemd Unit
 
