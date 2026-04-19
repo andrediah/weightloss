@@ -93,7 +93,8 @@ function showError(containerId, message) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = `
-    <div role="alert" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-lg p-3 flex items-start gap-2 mt-2">
+    <div role="alert" class="rounded-xl p-3 flex items-start gap-2 mt-2 mb-2"
+         style="background:rgba(185,28,28,0.08);border:1px solid var(--color-feedback-error);color:var(--color-feedback-error);">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            class="flex-shrink-0 mt-0.5" aria-hidden="true">
@@ -103,7 +104,8 @@ function showError(containerId, message) {
       <span class="flex-1 text-sm">${escHtml(message)}</span>
       <button onclick="this.closest('[role=alert]').remove()"
               aria-label="Dismiss error"
-              class="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-200 font-bold text-lg leading-none">
+              class="font-bold text-lg leading-none ml-1"
+              style="color:var(--color-feedback-error);">
         &times;
       </button>
     </div>`;
