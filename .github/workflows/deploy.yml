@@ -46,8 +46,18 @@ jobs:
           username: ${{ secrets.DO_SSH_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            tar -xzf /opt/weightloss/publish.tar.gz -C /opt/weightloss
+            mkdir -p /opt/weightloss-new
+            tar -xzf /opt/weightloss/publish.tar.gz -C /opt/weightloss-new
             rm /opt/weightloss/publish.tar.gz
+            rm -rf /opt/weightloss-old
+            mv /opt/weightloss /opt/weightloss-old
+            mv /opt/weightloss-new /opt/weightloss
             sudo systemctl restart weightloss.service
             sleep 8
-            sudo systemctl is-active --quiet weightloss.service || exit 1
+            if ! sudo systemctl is-active --quiet weightloss.service; then
+              mv /opt/weightloss /opt/weightloss-failed
+              mv /opt/weightloss-old /opt/weightloss
+              sudo systemctl restart weightloss.service
+              exit 1
+            fi
+            rm -rf /opt/weightloss-old
