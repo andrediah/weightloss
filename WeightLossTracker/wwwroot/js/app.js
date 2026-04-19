@@ -421,59 +421,206 @@ function statCard(value, label, color) {
     </div>`;
 }
 
-// ─── WEIGHT LOG ───────────────────────────────────────────────────────────────
-async function renderWeight() {
+// ─── LOG ENTRY ─────────────────────────────────────────────────────────────────
+async function renderLog() {
   const root = document.getElementById('view-root');
-  root.innerHTML = `
-    <div class="space-y-6">
-      <h1 class="${C.h1}">Weight log</h1>
 
-      <div class="${C.card}">
-        <h2 class="${C.h2}">Log today's weight</h2>
-        <div id="weight-error"></div>
-        <form id="weight-form" class="flex flex-wrap gap-3 items-end" novalidate>
-          <div>
-            <label for="wt-weight" class="${C.label}">Weight (lbs)</label>
-            <input id="wt-weight" type="number" step="0.1" min="50" max="500" required
-                   aria-describedby="wt-weight-hint"
-                   class="${C.input} w-32" placeholder="e.g. 212.5">
-            <p id="wt-weight-hint" class="text-xs text-gray-400 dark:text-gray-500 mt-1">50–500 lbs</p>
-          </div>
-          <div class="flex-1 min-w-48">
-            <label for="wt-notes" class="${C.label}">Notes (optional)</label>
-            <input id="wt-notes" type="text"
-                   class="${C.input}" placeholder="e.g. After workout">
-          </div>
-          <button type="submit" class="${C.btnPrimary} px-5">Save weight</button>
-        </form>
+  // Build date strip: last 7 days, today selected
+  const today = new Date();
+  const dayAbbr = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (6 - i));
+    return d;
+  });
+  const selectedIdx = 6; // today
+
+  root.innerHTML = `
+    <div>
+      <!-- Violet gradient header -->
+      <div class="rounded-2xl p-5 mb-4 text-white"
+           style="background: linear-gradient(160deg, var(--color-accent2) 0%, var(--color-accent2-dark) 100%);">
+        <div class="font-bold text-xs uppercase tracking-widest mb-1"
+             style="color:rgba(255,255,255,0.75);">Log your weight</div>
+        <div class="font-extrabold" style="font-size:clamp(1.1rem,3vw,1.4rem);">
+          How did you do today? 💪
+        </div>
       </div>
 
-      <div class="${C.card}">
-        <h2 class="${C.h2}">History</h2>
+      <!-- Date strip -->
+      <div class="flex gap-2 overflow-x-auto pb-1 mb-4" style="scrollbar-width:none;">
+        ${dates.map((d, i) => {
+          const isSelected = i === selectedIdx;
+          return `
+          <button data-date-btn="${d.toISOString().slice(0,10)}"
+                  onclick="selectLogDate(this, '${d.toISOString().slice(0,10)}')"
+                  class="flex-shrink-0 flex flex-col items-center justify-center rounded-xl min-w-[48px] py-2 transition-colors focus:outline-none focus:ring-2"
+                  style="${isSelected
+                    ? 'background:var(--color-accent2-dark);color:#fff;'
+                    : 'background:var(--color-surface-secondary);color:var(--color-text-secondary);border:1px solid var(--color-border-default);'}"
+                  aria-pressed="${isSelected}"
+                  aria-label="${d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'})}">
+            <span style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.75;">
+              ${dayAbbr[d.getDay()]}
+            </span>
+            <span style="font-size:1rem;font-weight:800;">${d.getDate()}</span>
+          </button>`;
+        }).join('')}
+      </div>
+
+      <!-- Weight input card -->
+      <div class="rounded-2xl p-5 mb-4 text-center" style="${C.cardStyle}">
+        <div class="font-bold text-xs uppercase tracking-widest mb-4"
+             style="color:var(--color-text-secondary);">Weight (lbs)</div>
+        <div id="log-error"></div>
+        <div id="weight-display"
+             class="font-black mb-4"
+             style="font-size:clamp(2.5rem,10vw,4rem); color:var(--color-accent); line-height:1;">
+          <span id="weight-int">—</span><span id="weight-dec"
+            style="font-size:0.5em; color:var(--color-accent2);">.0</span>
+        </div>
+        <div class="flex justify-center items-center gap-6 mb-4">
+          <button onclick="adjustWeight(-0.1)" aria-label="Decrease by 0.1"
+                  class="flex items-center justify-center rounded-full font-black text-2xl transition-colors focus:outline-none focus:ring-2"
+                  style="width:52px;height:52px;background:var(--color-surface-secondary);color:var(--color-accent);border:1.5px solid var(--color-border-default);">
+            −
+          </button>
+          <input id="wt-weight" type="number" step="0.1" min="50" max="999"
+                 oninput="syncWeightDisplay(this.value)"
+                 onblur="validateWeightInline()"
+                 aria-label="Weight in lbs"
+                 class="text-center font-bold rounded-xl px-2 py-1 w-24 focus:outline-none focus:ring-2"
+                 style="font-size:0.9rem;border:1.5px solid var(--color-border-default);background:var(--color-surface-primary);color:var(--color-text-primary);"
+                 placeholder="e.g. 192.0">
+          <button onclick="adjustWeight(0.1)" aria-label="Increase by 0.1"
+                  class="flex items-center justify-center rounded-full font-black text-2xl transition-colors focus:outline-none focus:ring-2"
+                  style="width:52px;height:52px;background:var(--color-surface-secondary);color:var(--color-accent);border:1.5px solid var(--color-border-default);">
+            +
+          </button>
+        </div>
+        <p id="wt-weight-error" class="text-sm mb-2 hidden"
+           style="color:var(--color-feedback-error);" role="alert"></p>
+      </div>
+
+      <!-- Notes card -->
+      <div class="rounded-2xl p-4 mb-4" style="${C.cardStyle}">
+        <label for="wt-notes" class="block font-bold text-xs uppercase tracking-widest mb-2"
+               style="color:var(--color-text-secondary);">📝 Note (optional)</label>
+        <input id="wt-notes" type="text"
+               class="rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-2 min-h-[44px]"
+               style="border:1.5px solid var(--color-border-default);background:var(--color-surface-primary);color:var(--color-text-primary);"
+               placeholder="Morning weigh-in, after workout…">
+      </div>
+
+      <!-- Save button -->
+      <button id="log-save-btn" onclick="saveLogEntry()"
+              class="w-full rounded-2xl font-extrabold text-white min-h-[52px] transition-opacity"
+              style="background:linear-gradient(135deg,var(--color-accent),var(--color-accent-dark));font-size:1rem;">
+        Save Entry ✓
+      </button>
+
+      <!-- History section -->
+      <div class="mt-6 rounded-2xl p-4" style="${C.cardStyle}">
+        <div class="font-bold text-xs uppercase tracking-widest mb-3"
+             style="color:var(--color-text-secondary);">All entries</div>
+        <div id="weight-error"></div>
         <div id="weight-table-wrap"></div>
       </div>
     </div>`;
 
+  // Pre-fill today's weight if already logged
+  const r = await Bridge.call('getWeightEntries');
+  if (r.ok && r.data?.length) {
+    const todayStr = today.toISOString().slice(0,10);
+    const todayEntry = r.data.find(e => e.date?.slice(0,10) === todayStr);
+    if (todayEntry) {
+      document.getElementById('wt-weight').value = todayEntry.weight.toFixed(1);
+      syncWeightDisplay(todayEntry.weight.toFixed(1));
+    }
+  }
+
+  await loadWeightTable();
+}
+
+let _logSelectedDate = new Date().toISOString().slice(0,10);
+
+function selectLogDate(btn, dateStr) {
+  _logSelectedDate = dateStr;
+  document.querySelectorAll('[data-date-btn]').forEach(b => {
+    const sel = b.dataset.dateBtn === dateStr;
+    b.style.background = sel ? 'var(--color-accent2-dark)' : 'var(--color-surface-secondary)';
+    b.style.color = sel ? '#fff' : 'var(--color-text-secondary)';
+    b.style.border = sel ? 'none' : '1px solid var(--color-border-default)';
+    b.setAttribute('aria-pressed', sel);
+  });
+}
+
+function adjustWeight(delta) {
+  const input = document.getElementById('wt-weight');
+  const current = parseFloat(input.value) || 0;
+  const next = Math.round((current + delta) * 10) / 10;
+  if (next >= 50 && next <= 999) {
+    input.value = next.toFixed(1);
+    syncWeightDisplay(input.value);
+  }
+}
+
+function syncWeightDisplay(val) {
+  const num = parseFloat(val);
+  const intEl = document.getElementById('weight-int');
+  const decEl = document.getElementById('weight-dec');
+  if (!intEl || !decEl) return;
+  if (isNaN(num)) {
+    intEl.textContent = '—';
+    decEl.textContent = '';
+    return;
+  }
+  const parts = num.toFixed(1).split('.');
+  intEl.textContent = parts[0];
+  decEl.textContent = '.' + (parts[1] || '0');
+}
+
+function validateWeightInline() {
+  const val = parseFloat(document.getElementById('wt-weight')?.value ?? '');
+  const errEl = document.getElementById('wt-weight-error');
+  if (!errEl) return true;
+  if (isNaN(val) || val < 50 || val > 999) {
+    errEl.textContent = 'Weight must be between 50 and 999 lbs.';
+    errEl.classList.remove('hidden');
+    return false;
+  }
+  errEl.classList.add('hidden');
+  return true;
+}
+
+async function saveLogEntry() {
+  if (!validateWeightInline()) return;
+  const weight = parseFloat(document.getElementById('wt-weight').value);
+  const notes  = document.getElementById('wt-notes').value.trim() || null;
+  const btn    = document.getElementById('log-save-btn');
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const r = await Bridge.call('saveWeight', { weight, notes });
+
+  btn.disabled = false;
+  btn.textContent = 'Save Entry ✓';
+
+  if (!r.ok) {
+    showError('log-error', r.data?.detail || r.data);
+    return;
+  }
+  document.getElementById('wt-notes').value = '';
   await loadWeightTable();
 
-  document.getElementById('weight-form').addEventListener('submit', async e => {
-    e.preventDefault();
-    clearError('weight-error');
-    const weight = parseFloat(document.getElementById('wt-weight').value);
-    const notes  = document.getElementById('wt-notes').value.trim() || null;
-
-    if (isNaN(weight) || weight < 50 || weight > 500) {
-      showError('weight-error', 'Weight must be between 50 and 500 lbs.');
-      document.getElementById('wt-weight').focus();
-      return;
-    }
-
-    const r = await Bridge.call('saveWeight', { weight, notes });
-    if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
-    document.getElementById('wt-weight').value = '';
-    document.getElementById('wt-notes').value  = '';
-    await loadWeightTable();
-  });
+  // Brief success indicator
+  btn.textContent = 'Saved! ✓';
+  btn.style.background = 'linear-gradient(135deg,#15803d,#166534)';
+  setTimeout(() => {
+    btn.textContent = 'Save Entry ✓';
+    btn.style.background = '';
+  }, 1500);
 }
 
 async function loadWeightTable() {
