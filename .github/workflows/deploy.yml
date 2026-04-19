@@ -19,7 +19,7 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Restore dependencies
-        run: dotnet restore WeightLossTracker.slnx
+        run: dotnet restore WeightLossTracker.slnx -r linux-x64
 
       - name: Run tests
         run: dotnet test WeightLossTracker.Tests/WeightLossTracker.Tests.csproj --configuration Release --no-restore --logger "console;verbosity=normal"
