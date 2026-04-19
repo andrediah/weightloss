@@ -859,7 +859,7 @@ async function renderSettings() {
              style="color:var(--color-text-secondary);">🏁 Goal weight</div>
         <div class="flex justify-between items-center" id="settings-goal-display">
           <div class="font-black" style="font-size:1.5rem; color:var(--color-accent);">
-            ${goal ? escHtml(String(goal)) + ' <span style="font-size:0.6em;color:var(--color-text-secondary);">' + escHtml(units) + '</span>' : '—'}
+            ${goal !== '' ? escHtml(String(goal)) + ' <span style="font-size:0.6em;color:var(--color-text-secondary);">' + escHtml(units) + '</span>' : '—'}
           </div>
           <button onclick="startGoalEdit()"
                   class="rounded-full font-bold text-xs px-3 py-1.5 min-h-[36px] focus:outline-none focus:ring-2"
@@ -871,11 +871,11 @@ async function renderSettings() {
           <div id="settings-goal-error"></div>
           <div class="flex gap-2 items-center mt-2">
             <input id="settings-goal-input" type="number" step="0.1" min="50" max="999"
-                   value="${goal ? escHtml(String(goal)) : ''}"
+                   value="${goal !== '' ? escHtml(String(goal)) : ''}"
                    aria-label="Goal weight"
                    class="rounded-xl px-3 py-2 w-32 font-bold text-center focus:outline-none focus:ring-2 min-h-[44px]"
                    style="border:1.5px solid var(--color-accent);background:var(--color-surface-primary);color:var(--color-text-primary);font-size:1.1rem;">
-            <button onclick="saveGoalEdit()"
+            <button id="settings-goal-save" onclick="saveGoalEdit()"
                     class="rounded-full font-bold text-xs px-4 py-1.5 min-h-[44px] focus:outline-none focus:ring-2"
                     style="background:var(--color-accent);color:#fff;">Save</button>
             <button onclick="cancelGoalEdit()"
@@ -954,13 +954,19 @@ async function saveGoalEdit() {
   }
   if (!activeProfile) { showError('settings-goal-error', 'Profile not loaded.'); return; }
 
-  const updated = { ...activeProfile, goalWeight: val };
-  const r = await Bridge.call('updateProfile', updated);
-  if (!r.ok) { showError('settings-goal-error', r.data?.detail || r.data); return; }
+  const btn = document.getElementById('settings-goal-save');
+  if (btn) btn.disabled = true;
+  try {
+    const updated = { ...activeProfile, goalWeight: val };
+    const r = await Bridge.call('updateProfile', updated);
+    if (!r.ok) { showError('settings-goal-error', r.data?.detail || r.data); return; }
 
-  activeProfile = r.data;
-  updateProfileUI();
-  renderSettings();
+    activeProfile = r.data;
+    updateProfileUI();
+    renderSettings();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function setUnits(unit) {
