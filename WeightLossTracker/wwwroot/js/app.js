@@ -694,7 +694,9 @@ async function loadTrendsChart() {
   const statsEl = document.getElementById('trends-stats');
 
   if (!entries.length) {
-    document.getElementById('trends-chart-wrap').innerHTML =
+    const wrapEl = document.getElementById('trends-chart-wrap');
+    if (!wrapEl) return;
+    wrapEl.innerHTML =
       `<p class="text-center py-8 text-sm" style="color:var(--color-text-disabled);">
          No entries in this period. Log some weights first.</p>`;
     if (statsEl) statsEl.innerHTML = '';
@@ -775,13 +777,16 @@ async function loadTrendsChart() {
     for (let i = 7; i < weights.length; i++) {
       weekLosses.push(weights[i - 7] - weights[i]);
     }
-    const bestWeek = weekLosses.length
-      ? Math.max(...weekLosses).toFixed(1)
-      : '—';
+    const bestWeekRaw = weekLosses.length ? Math.max(...weekLosses) : null;
+    const bestWeekDisplay = bestWeekRaw === null
+      ? '—'
+      : bestWeekRaw > 0
+        ? '−' + bestWeekRaw.toFixed(1) + ' lbs'
+        : '+' + Math.abs(bestWeekRaw).toFixed(1) + ' lbs gained';
 
     statsEl.innerHTML = `
       ${trendsStatCard('Avg this period', avg + ' lbs', 'var(--color-accent)')}
-      ${trendsStatCard('Best week loss', bestWeek !== '—' ? '−' + bestWeek + ' lbs' : '—', 'var(--color-accent2)')}`;
+      ${trendsStatCard('Best week loss', bestWeekDisplay, 'var(--color-accent2)')}`;
   }
 }
 
@@ -789,7 +794,7 @@ function trendsStatCard(label, value, color) {
   return `
     <div class="rounded-2xl p-4" style="${C.cardStyle}">
       <div class="font-bold text-xs uppercase tracking-widest mb-2"
-           style="color:var(--color-text-secondary);">${label}</div>
+           style="color:var(--color-text-secondary);">${escHtml(label)}</div>
       <div class="font-black" style="font-size:1.3rem; color:${color};">${escHtml(value)}</div>
     </div>`;
 }
