@@ -799,6 +799,180 @@ function trendsStatCard(label, value, color) {
     </div>`;
 }
 
+// ─── SETTINGS ──────────────────────────────────────────────────────────────────
+async function renderSettings() {
+  const root = document.getElementById('view-root');
+  const currentAccent = localStorage.getItem('wlt-accent') || 'amber';
+  const isDark = document.documentElement.classList.contains('dark');
+  const units = localStorage.getItem('wlt-units') || 'lbs';
+  const goal  = activeProfile?.goalWeight ?? '';
+
+  root.innerHTML = `
+    <div>
+      <!-- Amber gradient header -->
+      <div class="rounded-2xl p-5 mb-4 text-white"
+           style="background: linear-gradient(160deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);">
+        <div class="font-bold text-xs uppercase tracking-widest mb-1"
+             style="color:rgba(255,255,255,0.75);">Settings ⚙️</div>
+        <div class="font-extrabold" style="font-size:clamp(1.1rem,3vw,1.4rem);">Make it yours</div>
+      </div>
+
+      <!-- Accent colour -->
+      <div class="rounded-2xl p-4 mb-3" style="${C.cardStyle}">
+        <div class="font-bold text-xs uppercase tracking-widest mb-3"
+             style="color:var(--color-text-secondary);">🎨 Accent colour</div>
+        <div class="flex gap-3 flex-wrap">
+          ${Object.entries(ACCENTS).map(([key, preset]) => `
+            <button data-accent-swatch="${key}"
+                    onclick="applyAccent('${key}'); renderSettingsAccentState('${key}')"
+                    aria-label="${escHtml(preset.label)} accent"
+                    aria-pressed="${key === currentAccent}"
+                    class="rounded-full transition-transform focus:outline-none focus:ring-2 focus:ring-offset-2"
+                    style="width:36px;height:36px;background:linear-gradient(135deg,${preset.accent},${preset.accentDark});
+                           ${key === currentAccent ? 'box-shadow:0 0 0 3px var(--color-surface-primary),0 0 0 5px ' + preset.accent + ';' : ''}">
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <!-- Dark mode toggle -->
+      <div class="rounded-2xl p-4 mb-3 flex justify-between items-center" style="${C.cardStyle}">
+        <div>
+          <div class="font-bold text-sm" style="color:var(--color-text-primary);">🌙 Dark mode</div>
+          <div class="text-xs mt-0.5" style="color:var(--color-text-secondary);">Warm dark theme</div>
+        </div>
+        <button id="settings-dark-toggle"
+                role="switch"
+                aria-checked="${isDark}"
+                onclick="settingsToggleDark()"
+                class="relative flex-shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2"
+                style="width:48px;height:28px;background:${isDark ? 'var(--color-accent)' : 'var(--color-border-default)'};">
+          <span id="settings-dark-knob"
+                class="absolute top-0.5 rounded-full transition-transform"
+                style="width:24px;height:24px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);
+                       transform: translateX(${isDark ? '22px' : '2px'});"></span>
+        </button>
+      </div>
+
+      <!-- Goal weight inline edit -->
+      <div class="rounded-2xl p-4 mb-3" style="${C.cardStyle}" id="settings-goal-card">
+        <div class="font-bold text-xs uppercase tracking-widest mb-2"
+             style="color:var(--color-text-secondary);">🏁 Goal weight</div>
+        <div class="flex justify-between items-center" id="settings-goal-display">
+          <div class="font-black" style="font-size:1.5rem; color:var(--color-accent);">
+            ${goal ? escHtml(String(goal)) + ' <span style="font-size:0.6em;color:var(--color-text-secondary);">' + escHtml(units) + '</span>' : '—'}
+          </div>
+          <button onclick="startGoalEdit()"
+                  class="rounded-full font-bold text-xs px-3 py-1.5 min-h-[36px] focus:outline-none focus:ring-2"
+                  style="background:var(--color-surface-secondary);color:var(--color-accent);border:1.5px solid var(--color-accent);">
+            Edit
+          </button>
+        </div>
+        <div id="settings-goal-edit" class="hidden">
+          <div id="settings-goal-error"></div>
+          <div class="flex gap-2 items-center mt-2">
+            <input id="settings-goal-input" type="number" step="0.1" min="50" max="999"
+                   value="${goal ? escHtml(String(goal)) : ''}"
+                   aria-label="Goal weight"
+                   class="rounded-xl px-3 py-2 w-32 font-bold text-center focus:outline-none focus:ring-2 min-h-[44px]"
+                   style="border:1.5px solid var(--color-accent);background:var(--color-surface-primary);color:var(--color-text-primary);font-size:1.1rem;">
+            <button onclick="saveGoalEdit()"
+                    class="rounded-full font-bold text-xs px-4 py-1.5 min-h-[44px] focus:outline-none focus:ring-2"
+                    style="background:var(--color-accent);color:#fff;">Save</button>
+            <button onclick="cancelGoalEdit()"
+                    class="rounded-full font-bold text-xs px-4 py-1.5 min-h-[44px] focus:outline-none focus:ring-2"
+                    style="background:var(--color-surface-secondary);color:var(--color-text-secondary);border:1px solid var(--color-border-default);">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Units segmented control -->
+      <div class="rounded-2xl p-4 mb-3 flex justify-between items-center" style="${C.cardStyle}">
+        <div class="font-bold text-sm" style="color:var(--color-text-primary);">⚖️ Units</div>
+        <div class="flex overflow-hidden rounded-full"
+             style="border:1.5px solid var(--color-border-default);">
+          <button id="units-lbs" onclick="setUnits('lbs')"
+                  class="font-bold text-xs px-4 py-2 min-h-[36px] focus:outline-none transition-colors"
+                  style="${units === 'lbs'
+                    ? 'background:var(--color-accent);color:#fff;'
+                    : 'background:var(--color-surface-secondary);color:var(--color-text-secondary);'}">
+            lbs
+          </button>
+          <button id="units-kg" onclick="setUnits('kg')"
+                  class="font-bold text-xs px-4 py-2 min-h-[36px] focus:outline-none transition-colors"
+                  style="${units === 'kg'
+                    ? 'background:var(--color-accent);color:#fff;'
+                    : 'background:var(--color-surface-secondary);color:var(--color-text-secondary);'}">
+            kg
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderSettingsAccentState(activeKey) {
+  document.querySelectorAll('[data-accent-swatch]').forEach(btn => {
+    const key = btn.dataset.accentSwatch;
+    const preset = ACCENTS[key];
+    if (!preset) return;
+    btn.setAttribute('aria-pressed', key === activeKey);
+    btn.style.boxShadow = key === activeKey
+      ? `0 0 0 3px var(--color-surface-primary),0 0 0 5px ${preset.accent}`
+      : 'none';
+  });
+}
+
+function settingsToggleDark() {
+  toggleTheme();
+  const isDark = document.documentElement.classList.contains('dark');
+  const toggle = document.getElementById('settings-dark-toggle');
+  const knob   = document.getElementById('settings-dark-knob');
+  if (toggle) {
+    toggle.setAttribute('aria-checked', isDark);
+    toggle.style.background = isDark ? 'var(--color-accent)' : 'var(--color-border-default)';
+  }
+  if (knob) knob.style.transform = `translateX(${isDark ? '22px' : '2px'})`;
+}
+
+function startGoalEdit() {
+  document.getElementById('settings-goal-display').classList.add('hidden');
+  document.getElementById('settings-goal-edit').classList.remove('hidden');
+  document.getElementById('settings-goal-input').focus();
+}
+
+function cancelGoalEdit() {
+  document.getElementById('settings-goal-display').classList.remove('hidden');
+  document.getElementById('settings-goal-edit').classList.add('hidden');
+}
+
+async function saveGoalEdit() {
+  const val = parseFloat(document.getElementById('settings-goal-input').value);
+  if (isNaN(val) || val < 50 || val > 999) {
+    showError('settings-goal-error', 'Goal must be between 50 and 999 lbs.');
+    return;
+  }
+  if (!activeProfile) { showError('settings-goal-error', 'Profile not loaded.'); return; }
+
+  const updated = { ...activeProfile, goalWeight: val };
+  const r = await Bridge.call('updateProfile', updated);
+  if (!r.ok) { showError('settings-goal-error', r.data?.detail || r.data); return; }
+
+  activeProfile = r.data;
+  updateProfileUI();
+  renderSettings();
+}
+
+function setUnits(unit) {
+  localStorage.setItem('wlt-units', unit);
+  ['lbs','kg'].forEach(u => {
+    const btn = document.getElementById(`units-${u}`);
+    if (!btn) return;
+    btn.style.background = u === unit ? 'var(--color-accent)' : 'var(--color-surface-secondary)';
+    btn.style.color = u === unit ? '#fff' : 'var(--color-text-secondary)';
+  });
+}
+
 async function loadWeightTable() {
   const wrap = document.getElementById('weight-table-wrap');
   if (!wrap) return;
