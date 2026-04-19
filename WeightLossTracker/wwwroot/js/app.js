@@ -4,25 +4,68 @@ const DISPLAY_ORDER = [1,2,3,4,5,6,0]; // Mon–Sun display order
 
 // Reusable Tailwind class sets (light + dark variants) for dynamic HTML
 const C = {
-  card:        'bg-white dark:bg-gray-800 rounded-xl shadow p-5',
-  h1:          'text-2xl font-bold text-gray-800 dark:text-gray-100',
-  h2:          'text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4',
-  h3:          'font-semibold text-gray-800 dark:text-gray-100',
-  label:       'block text-sm text-gray-600 dark:text-gray-300 mb-1',
-  bodyText:    'text-sm text-gray-700 dark:text-gray-200',
-  mutedText:   'text-sm text-gray-500 dark:text-gray-400',
-  tinyText:    'text-xs text-gray-400 dark:text-gray-500',
-  input:       'border dark:border-gray-600 rounded-lg px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-indigo-500',
-  inputSm:     'border dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400',
-  select:      'border dark:border-gray-600 rounded-lg px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400',
-  btnPrimary:  'bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition-colors min-h-[44px]',
-  btnSuccess:  'bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition-colors min-h-[44px]',
-  btnSecondary:'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-  btnSmPrimary:'text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded px-2 py-1 transition-colors',
-  trow:        'border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50',
-  divider:     'border-b dark:border-gray-700',
+  card:        'rounded-2xl p-5 shadow-sm',
+  cardStyle:   'background: var(--color-surface-secondary); border: 1px solid var(--color-border-default);',
+  h1:          'font-extrabold',
+  h1Style:     'font-size: clamp(1.5rem,4vw,2rem); color: var(--color-text-primary);',
+  h2:          'font-bold mb-4',
+  h2Style:     'font-size:1rem; color: var(--color-text-secondary); text-transform:uppercase; letter-spacing:0.08em;',
+  label:       'block text-sm mb-1 font-semibold',
+  labelStyle:  'color: var(--color-text-secondary);',
+  bodyText:    'text-sm',
+  bodyStyle:   'color: var(--color-text-primary);',
+  mutedText:   'text-sm',
+  mutedStyle:  'color: var(--color-text-secondary);',
+  tinyText:    'text-xs',
+  tinyStyle:   'color: var(--color-text-disabled);',
+  input:       'rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-2 min-h-[44px]',
+  inputStyle:  'border: 1.5px solid var(--color-border-default); background: var(--color-surface-primary); color: var(--color-text-primary);',
+  inputSm:     'rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1',
+  inputSmStyle:'border: 1px solid var(--color-border-default); background: var(--color-surface-primary); color: var(--color-text-primary);',
+  select:      'rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-2 min-h-[44px]',
+  selectStyle: 'border: 1.5px solid var(--color-border-default); background: var(--color-surface-primary); color: var(--color-text-primary);',
+  btnPrimary:  'rounded-xl font-extrabold text-white px-5 py-2 transition-opacity min-h-[44px]',
+  btnPrimaryStyle: 'background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));',
+  btnSuccess:  'rounded-xl font-extrabold text-white py-2 transition-opacity min-h-[44px]',
+  btnSuccessStyle: 'background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));',
+  btnSecondary:'rounded-xl px-4 py-2 text-sm font-semibold transition-colors min-h-[44px]',
+  btnSecStyle: 'background: var(--color-surface-secondary); color: var(--color-text-secondary); border: 1px solid var(--color-border-default);',
+  btnSmPrimary:'text-xs rounded-lg px-2 py-1 font-bold text-white transition-opacity',
+  btnSmStyle:  'background: var(--color-accent);',
+  trow:        'border-b last:border-0',
+  trowStyle:   'border-color: var(--color-border-default);',
+  divider:     'border-b',
+  dividerStyle:'border-color: var(--color-border-default);',
   badge:       'text-xs font-semibold px-2 py-0.5 rounded-full',
 };
+
+// ─── Accent presets ────────────────────────────────────────────────────────────
+const ACCENTS = {
+  amber:  { accent: '#f59e0b', accentDark: '#d97706', label: 'Amber'  },
+  rose:   { accent: '#f472b6', accentDark: '#db2777', label: 'Rose'   },
+  coral:  { accent: '#fb923c', accentDark: '#ea580c', label: 'Coral'  },
+  gold:   { accent: '#eab308', accentDark: '#ca8a04', label: 'Gold'   },
+  violet: { accent: '#a78bfa', accentDark: '#7c3aed', label: 'Violet' },
+};
+
+function initAccent() {
+  const saved = localStorage.getItem('wlt-accent') || 'amber';
+  applyAccent(saved);
+}
+
+function applyAccent(name) {
+  const preset = ACCENTS[name] || ACCENTS.amber;
+  const root = document.documentElement;
+  root.style.setProperty('--color-accent',      preset.accent);
+  root.style.setProperty('--color-accent-dark', preset.accentDark);
+  root.setAttribute('data-accent', name);
+  localStorage.setItem('wlt-accent', name);
+  // Refresh active nav indicator colour
+  document.querySelectorAll('[data-mobile-nav].mobile-tab-active').forEach(el => {
+    el.style.borderTopColor = preset.accent;
+    el.style.color = preset.accent;
+  });
+}
 
 let activeChart = null;
 let activeProfile = null;
@@ -92,14 +135,14 @@ function fmtDateTime(isoStr) {
 
 // ─── Dark mode ────────────────────────────────────────────────────────────────
 function initTheme() {
-  const saved = localStorage.getItem('theme');
+  const saved = localStorage.getItem('wlt-theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const isDark = saved === 'dark' || (!saved && prefersDark);
   applyTheme(isDark);
 
   // Keep in sync if OS preference changes and no user override is stored
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    if (!localStorage.getItem('theme')) applyTheme(e.matches);
+    if (!localStorage.getItem('wlt-theme')) applyTheme(e.matches);
   });
 }
 
@@ -127,7 +170,7 @@ function applyTheme(isDark) {
 
 function toggleTheme() {
   const isDark = !document.documentElement.classList.contains('dark');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('wlt-theme', isDark ? 'dark' : 'light');
   applyTheme(isDark);
 }
 
@@ -224,10 +267,8 @@ function navigate(viewName) {
   // Desktop sidebar active state
   document.querySelectorAll('[data-nav]').forEach(el => {
     const active = el.dataset.nav === viewName;
-    el.classList.toggle('bg-indigo-700',            active);
-    el.classList.toggle('dark:bg-indigo-800',       active);
-    el.classList.toggle('text-white',               active);
-    el.classList.toggle('text-indigo-100',         !active);
+    el.style.background = active ? 'rgba(255,255,255,0.25)' : '';
+    el.style.color = active ? '#fff' : '';
   });
   // Mobile bottom tab active state
   document.querySelectorAll('[data-mobile-nav]').forEach(el => {
@@ -237,12 +278,15 @@ function navigate(viewName) {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="flex justify-center py-16" role="status" aria-label="Loading">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2"
+           style="border-color: var(--color-accent);"></div>
     </div>`;
 
   const views = {
     dashboard: renderDashboard,
-    weight:    renderWeight,
+    weight:    renderLog,
+    trends:    renderTrends,
+    settings:  renderSettings,
     exercise:  renderExercise,
     meals:     renderMeals,
     history:   renderHistory,
@@ -1219,6 +1263,7 @@ async function renderProfile() {
 
 // ─── Initialise ───────────────────────────────────────────────────────────────
 initTheme();
+initAccent();
 initAuth().then(authenticated => {
   if (authenticated) navigate('dashboard');
 });
