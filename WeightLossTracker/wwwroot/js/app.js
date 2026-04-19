@@ -423,6 +423,7 @@ function statCard(value, label, color) {
 
 // ─── LOG ENTRY ─────────────────────────────────────────────────────────────────
 async function renderLog() {
+  _logSelectedDate = new Date().toISOString().slice(0,10);
   const root = document.getElementById('view-root');
 
   // Build date strip: last 7 days, today selected
@@ -557,8 +558,9 @@ function selectLogDate(btn, dateStr) {
 
 function adjustWeight(delta) {
   const input = document.getElementById('wt-weight');
-  const current = parseFloat(input.value) || 0;
-  const next = Math.round((current + delta) * 10) / 10;
+  const current = parseFloat(input.value);
+  const seed = isNaN(current) ? 50 : current;
+  const next = Math.round((seed + delta) * 10) / 10;
   if (next >= 50 && next <= 999) {
     input.value = next.toFixed(1);
     syncWeightDisplay(input.value);
@@ -601,26 +603,26 @@ async function saveLogEntry() {
 
   btn.disabled = true;
   btn.textContent = 'Saving…';
+  try {
+    const r = await Bridge.call('saveWeight', { weight, notes, date: _logSelectedDate });
+    if (!r.ok) {
+      showError('log-error', r.data?.detail || r.data);
+      return;
+    }
+    document.getElementById('wt-notes').value = '';
+    await loadWeightTable();
 
-  const r = await Bridge.call('saveWeight', { weight, notes, date: _logSelectedDate });
-
-  btn.disabled = false;
-  btn.textContent = 'Save Entry ✓';
-
-  if (!r.ok) {
-    showError('log-error', r.data?.detail || r.data);
-    return;
+    // Brief success indicator
+    btn.textContent = 'Saved! ✓';
+    btn.style.background = 'linear-gradient(135deg,#15803d,#166534)';
+    setTimeout(() => {
+      btn.textContent = 'Save Entry ✓';
+      btn.style.background = '';
+    }, 1500);
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Saving…') btn.textContent = 'Save Entry ✓';
   }
-  document.getElementById('wt-notes').value = '';
-  await loadWeightTable();
-
-  // Brief success indicator
-  btn.textContent = 'Saved! ✓';
-  btn.style.background = 'linear-gradient(135deg,#15803d,#166534)';
-  setTimeout(() => {
-    btn.textContent = 'Save Entry ✓';
-    btn.style.background = '';
-  }, 1500);
 }
 
 async function loadWeightTable() {
