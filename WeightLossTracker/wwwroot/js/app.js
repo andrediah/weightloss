@@ -301,117 +301,123 @@ async function renderDashboard() {
   const root = document.getElementById('view-root');
   const r = await Bridge.call('getDashboard');
   if (!r.ok) {
-    root.innerHTML = `<p class="text-red-600 dark:text-red-400 p-4">
+    root.innerHTML = `<p style="color:var(--color-feedback-error);padding:1rem;">
       Failed to load dashboard: ${escHtml(r.data?.detail || r.data)}</p>`;
     return;
   }
   const d = r.data;
-  const cwDisplay = d.currentWeight != null ? d.currentWeight.toFixed(1) + ' lbs' : '—';
+  const pct = Math.min(100, Math.max(0, d.progressPct || 0));
+  const circumference = 2 * Math.PI * 46; // r=46 in viewBox 110x110
+  const offset = circumference * (1 - pct / 100);
+  const greeting = timeGreeting();
+  const cwDisplay = d.currentWeight != null ? d.currentWeight.toFixed(1) : '—';
 
   root.innerHTML = `
-    <div class="space-y-6">
-      <h1 class="${C.h1}">Dashboard</h1>
+    <div>
+      <!-- Gradient header with progress ring -->
+      <div class="rounded-2xl p-5 mb-4 text-white"
+           style="background: linear-gradient(160deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <div class="font-bold text-xs uppercase tracking-widest" style="color:rgba(255,255,255,0.75);">
+              ${greeting.time}
+            </div>
+            <div class="font-extrabold mt-1" style="font-size:clamp(1.1rem,3vw,1.4rem);">
+              ${escHtml(greeting.line)}
+            </div>
+          </div>
+          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+               style="background:rgba(255,255,255,0.2); font-size:1.25rem;">
+            ${greeting.emoji}
+          </div>
+        </div>
 
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" role="list" aria-label="Key metrics">
-        ${kpiCard('Current Weight', cwDisplay,          'text-indigo-600 dark:text-indigo-400',  'scale')}
-        ${kpiCard('Lost So Far',    d.lostSoFar + ' lbs','text-green-600 dark:text-green-400',  'trending-down')}
-        ${kpiCard('To Goal',        d.toGoal + ' lbs',   'text-orange-600 dark:text-orange-400','target')}
-        ${kpiCard('Days Logged',    d.daysLogged,         'text-purple-600 dark:text-purple-400','calendar')}
+        <!-- SVG progress ring -->
+        <div class="flex justify-center">
+          <div class="relative inline-block">
+            <svg width="110" height="110" viewBox="0 0 110 110"
+                 role="progressbar"
+                 aria-valuenow="${pct}"
+                 aria-valuemin="0"
+                 aria-valuemax="100"
+                 aria-label="Weight loss progress: ${pct}%">
+              <circle cx="55" cy="55" r="46" fill="none"
+                      stroke="rgba(255,255,255,0.25)" stroke-width="10"/>
+              <circle cx="55" cy="55" r="46" fill="none"
+                      stroke="#ffffff" stroke-width="10"
+                      stroke-dasharray="${circumference.toFixed(1)}"
+                      stroke-dashoffset="${offset.toFixed(1)}"
+                      stroke-linecap="round"
+                      transform="rotate(-90 55 55)"
+                      style="transition: stroke-dashoffset 0.7s ease;"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div class="font-black text-white" style="font-size:1.5rem; line-height:1;">${pct}%</div>
+              <div class="font-semibold mt-1" style="font-size:0.65rem; color:rgba(255,255,255,0.8);">to goal 🎯</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="${C.card}">
-        <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
-          <span>Progress to goal</span>
-          <span class="font-semibold text-indigo-600 dark:text-indigo-400">${d.progressPct}%</span>
-        </div>
-        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"
-             role="progressbar" aria-valuenow="${d.progressPct}" aria-valuemin="0" aria-valuemax="100"
-             aria-label="Weight loss progress">
-          <div class="bg-indigo-500 h-4 rounded-full transition-all duration-700"
-               style="width:${d.progressPct}%"></div>
-        </div>
-        <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-          <span>${d.startingWeight} lbs (start)</span><span>${d.goalWeight} lbs (goal)</span>
-        </div>
+      <!-- Stat cards -->
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        ${statCard(cwDisplay, 'lbs now', 'var(--color-accent)')}
+        ${statCard(d.lostSoFar != null ? '−' + d.lostSoFar : '—', 'lost 🔥', 'var(--color-accent2)')}
+        ${statCard(d.goalWeight != null ? d.goalWeight.toFixed(1) : '—', 'goal 🏁', '#15803d')}
       </div>
 
-      <div class="${C.card}">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Weight trend</h2>
-        ${d.chart.labels.length === 0
-          ? `<p class="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
-               No weight entries yet. Log your first weight to see the chart.
-             </p>`
-          : '<canvas id="weight-chart" height="100"></canvas>'}
+      <!-- Recent entries -->
+      <div class="rounded-2xl p-4" style="${C.cardStyle}">
+        <div class="font-bold mb-3 text-xs uppercase tracking-widest"
+             style="color: var(--color-text-secondary);">Recent entries</div>
+        <div id="recent-entries-list">
+          <div class="text-sm" style="color:var(--color-text-disabled);">Loading…</div>
+        </div>
       </div>
     </div>`;
 
-  if (d.chart.labels.length > 0) {
-    const isDark = document.documentElement.classList.contains('dark');
-    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    const tickColor = isDark ? '#9ca3af' : '#6b7280';
-    const ctx = document.getElementById('weight-chart').getContext('2d');
-    const goalLine = Array(d.chart.labels.length).fill(d.goalWeight);
-    activeChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: d.chart.labels,
-        datasets: [
-          {
-            label: 'Weight (lbs)',
-            data: d.chart.weights,
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99,102,241,0.1)',
-            tension: 0.3,
-            pointRadius: 4,
-            fill: true
-          },
-          {
-            label: 'Trend',
-            data: d.chart.trendLine,
-            borderColor: '#f97316',
-            borderDash: [6,3],
-            pointRadius: 0,
-            tension: 0
-          },
-          {
-            label: 'Goal',
-            data: goalLine,
-            borderColor: '#22c55e',
-            borderDash: [4,4],
-            pointRadius: 0,
-            tension: 0
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position: 'top', labels: { color: tickColor } } },
-        scales: {
-          x: { ticks: { color: tickColor }, grid: { color: gridColor } },
-          y: { ticks: { color: tickColor }, grid: { color: gridColor },
-               title: { display: true, text: 'lbs', color: tickColor } }
-        }
-      }
-    });
+  // Load recent entries
+  const wr = await Bridge.call('getWeightEntries');
+  const recentEl = document.getElementById('recent-entries-list');
+  if (recentEl) {
+    if (!wr.ok || !wr.data.length) {
+      recentEl.innerHTML = `<p class="text-sm" style="color:var(--color-text-disabled);">
+        No entries yet. Tap ➕ to log your first weight.</p>`;
+    } else {
+      recentEl.innerHTML = wr.data.slice(0, 3).map((e, i) => `
+        <div class="flex justify-between items-center py-2 ${i < 2 ? 'border-b' : ''}"
+             style="border-color: var(--color-border-default);">
+          <span class="text-sm" style="color: var(--color-text-${i === 0 ? 'primary' : 'secondary'});">
+            ${i === 0 ? 'Today' : i === 1 ? 'Yesterday' : fmtDate(e.date)}
+          </span>
+          <span class="font-bold text-sm" style="color: ${i === 0 ? 'var(--color-accent)' : 'var(--color-text-disabled)'};">
+            ${e.weight.toFixed(1)} lbs
+          </span>
+        </div>`).join('');
+    }
   }
 }
 
-function kpiCard(label, value, colorClass, icon) {
-  const icons = {
-    'scale':        '<path d="M12 3a9 9 0 1 0 9 9H3a9 9 0 0 0 9-9z"/><line x1="12" y1="3" x2="12" y2="3.01"/><line x1="3" y1="12" x2="21" y2="12"/>',
-    'trending-down':'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
-    'target':       '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
-    'calendar':     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-  };
+function timeGreeting() {
+  const h = new Date().getHours();
+  const lines = [
+    "You're doing amazing! 💪",
+    "Keep pushing forward!",
+    "Every step counts! 🌟",
+    "Progress, not perfection!",
+    "You've got this! 🎯",
+  ];
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  if (h < 12) return { time: 'Good morning 🌅', emoji: '😊', line };
+  if (h < 17) return { time: 'Good afternoon ☀️', emoji: '💪', line };
+  return { time: 'Good evening 🌙', emoji: '🌟', line };
+}
+
+function statCard(value, label, color) {
   return `
-    <div class="${C.card} flex flex-col gap-1" role="listitem">
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-           stroke-linejoin="round" class="${colorClass}" aria-hidden="true">
-        ${icons[icon] || ''}
-      </svg>
-      <div class="text-2xl font-bold ${colorClass}">${value}</div>
-      <div class="${C.mutedText}">${label}</div>
+    <div class="rounded-2xl p-3 text-center" style="${C.cardStyle}">
+      <div class="font-black" style="font-size:1.2rem; color:${color};">${escHtml(String(value))}</div>
+      <div class="font-semibold mt-1" style="font-size:0.7rem; color:var(--color-text-secondary);">${label}</div>
     </div>`;
 }
 
