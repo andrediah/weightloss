@@ -1,0 +1,53 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Run tests
+        run: dotnet test WeightLossTracker.Tests/WeightLossTracker.Tests.csproj --configuration Release
+
+      - name: Publish self-contained linux-x64 binary
+        run: dotnet publish WeightLossTracker/WeightLossTracker.csproj -c Release -r linux-x64 --self-contained true -o ./publish
+
+      - name: Ensure deploy directory exists on Droplet
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: mkdir -p /opt/weightloss
+
+      - name: Copy published files to Droplet
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "./publish/*"
+          target: "/opt/weightloss"
+          strip_components: 1
+
+      - name: Restart service and verify
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DO_SSH_HOST }}
+          username: ${{ secrets.DO_SSH_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            sudo systemctl restart weightloss.service
+            sleep 3
+            sudo systemctl is-active --quiet weightloss.service || exit 1
