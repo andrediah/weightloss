@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -17,37 +18,36 @@ jobs:
         with:
           dotnet-version: '10.x'
 
+      - name: Restore dependencies
+        run: dotnet restore WeightLossTracker.slnx
+
       - name: Run tests
-        run: dotnet test WeightLossTracker.Tests/WeightLossTracker.Tests.csproj --configuration Release
+        run: dotnet test WeightLossTracker.Tests/WeightLossTracker.Tests.csproj --configuration Release --no-restore --logger "console;verbosity=normal"
 
       - name: Publish self-contained linux-x64 binary
-        run: dotnet publish WeightLossTracker/WeightLossTracker.csproj -c Release -r linux-x64 --self-contained true -o ./publish
+        run: dotnet publish WeightLossTracker/WeightLossTracker.csproj -c Release -r linux-x64 --self-contained true --no-restore -o ./publish
 
-      - name: Ensure deploy directory exists on Droplet
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DO_SSH_HOST }}
-          username: ${{ secrets.DO_SSH_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          script: mkdir -p /opt/weightloss
+      - name: Archive published output
+        run: tar -czf publish.tar.gz -C ./publish .
 
-      - name: Copy published files to Droplet
+      - name: Copy archive to Droplet
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.DO_SSH_HOST }}
           username: ${{ secrets.DO_SSH_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
-          source: "./publish/*"
+          source: "publish.tar.gz"
           target: "/opt/weightloss"
-          strip_components: 1
 
-      - name: Restart service and verify
+      - name: Extract and restart service
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DO_SSH_HOST }}
           username: ${{ secrets.DO_SSH_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
+            tar -xzf /opt/weightloss/publish.tar.gz -C /opt/weightloss
+            rm /opt/weightloss/publish.tar.gz
             sudo systemctl restart weightloss.service
-            sleep 3
+            sleep 8
             sudo systemctl is-active --quiet weightloss.service || exit 1
