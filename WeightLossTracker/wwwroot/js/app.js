@@ -54,12 +54,13 @@ function initAccent() {
 }
 
 function applyAccent(name) {
-  const preset = ACCENTS[name] || ACCENTS.amber;
+  const resolvedName = Object.prototype.hasOwnProperty.call(ACCENTS, name) ? name : 'amber';
+  const preset = ACCENTS[resolvedName];
   const root = document.documentElement;
   root.style.setProperty('--color-accent',      preset.accent);
   root.style.setProperty('--color-accent-dark', preset.accentDark);
-  root.setAttribute('data-accent', name);
-  localStorage.setItem('wlt-accent', name);
+  root.setAttribute('data-accent', resolvedName);
+  localStorage.setItem('wlt-accent', resolvedName);
   // Refresh active nav indicator colour
   document.querySelectorAll('[data-mobile-nav].mobile-tab-active').forEach(el => {
     el.style.borderTopColor = preset.accent;
