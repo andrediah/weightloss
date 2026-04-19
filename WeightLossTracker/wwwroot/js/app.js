@@ -362,7 +362,7 @@ async function renderDashboard() {
       <!-- Stat cards -->
       <div class="grid grid-cols-3 gap-3 mb-4">
         ${statCard(cwDisplay, 'lbs now', 'var(--color-accent)')}
-        ${statCard(d.lostSoFar != null ? '−' + d.lostSoFar : '—', 'lost 🔥', 'var(--color-accent2)')}
+        ${statCard(d.lostSoFar != null ? '−' + Number(d.lostSoFar).toFixed(1) : '—', 'lost 🔥', 'var(--color-accent2)')}
         ${statCard(d.goalWeight != null ? d.goalWeight.toFixed(1) : '—', 'goal 🏁', '#15803d')}
       </div>
 
@@ -380,7 +380,7 @@ async function renderDashboard() {
   const wr = await Bridge.call('getWeightEntries');
   const recentEl = document.getElementById('recent-entries-list');
   if (recentEl) {
-    if (!wr.ok || !wr.data.length) {
+    if (!wr.ok || !wr.data?.length) {
       recentEl.innerHTML = `<p class="text-sm" style="color:var(--color-text-disabled);">
         No entries yet. Tap ➕ to log your first weight.</p>`;
     } else {
@@ -391,7 +391,7 @@ async function renderDashboard() {
             ${i === 0 ? 'Today' : i === 1 ? 'Yesterday' : fmtDate(e.date)}
           </span>
           <span class="font-bold text-sm" style="color: ${i === 0 ? 'var(--color-accent)' : 'var(--color-text-disabled)'};">
-            ${e.weight.toFixed(1)} lbs
+            ${e.weight != null ? e.weight.toFixed(1) : '—'} lbs
           </span>
         </div>`).join('');
     }
