@@ -12,12 +12,28 @@ using WeightLossTracker.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─── Database ─────────────────────────────────────────────────────────────────
-var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-var dbFolder = Path.Combine(appData, "WeightLossTracker");
-Directory.CreateDirectory(dbFolder);
-var dbPath = Path.Combine(dbFolder, "tracker.db");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+    if (string.IsNullOrEmpty(appData))
+        appData = Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "/tmp", ".local", "share");
+    var dbFolder = Path.Combine(appData, "WeightLossTracker");
+    Directory.CreateDirectory(dbFolder);
+    connectionString = $"Data Source={Path.Combine(dbFolder, "tracker.db")}";
+}
+else
+{
+    var dataSource = new SqliteConnectionStringBuilder(connectionString).DataSource;
+    if (!string.IsNullOrEmpty(dataSource))
+    {
+        var dir = Path.GetDirectoryName(Path.GetFullPath(dataSource));
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+    }
+}
 
-builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite($"Data Source={dbPath}"));
+var dbPath = new SqliteConnectionStringBuilder(connectionString).DataSource;
+builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite(connectionString));
 
 // ─── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddWeightLossTrackerServices(builder.Configuration);
