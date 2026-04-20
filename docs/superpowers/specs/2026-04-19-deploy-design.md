@@ -111,11 +111,21 @@ Replace `PASTE_PUBLIC_KEY_HERE` with the contents of `~/.ssh/weightloss_deploy.p
 > Note: The `weightloss` user has no login shell but CAN be used for SSH file transfers and running remote commands via GitHub Actions.
 
 #### Step 5 — Grant passwordless sudo for service restart only
+
+A syntax error in any file under `/etc/sudoers.d/` disables all NOPASSWD rules — sudo falls back to password auth and the deploy fails with `sudo: a password is required`. The most common way this happens is a terminal wrapping a long paste across two physical lines. The block below uses sudoers' backslash line-continuation so each physical line is short and unwrappable. `visudo -c` validates the result.
+
 ```bash
-echo "weightloss ALL=(ALL) NOPASSWD: /bin/systemctl restart weightloss.service, /bin/systemctl is-active weightloss.service" \
-  > /etc/sudoers.d/weightloss
+rm -f /etc/sudoers.d/weightloss
+cat > /etc/sudoers.d/weightloss << 'EOF'
+weightloss ALL=(ALL) NOPASSWD: \
+    /usr/bin/systemctl restart weightloss.service, \
+    /usr/bin/systemctl is-active weightloss.service
+EOF
 chmod 440 /etc/sudoers.d/weightloss
+visudo -c -f /etc/sudoers.d/weightloss
 ```
+
+The paths are literal — `sudoers` does not resolve symlinks. Any caller (the deploy workflow) must invoke `/usr/bin/systemctl` exactly, with no extra arguments beyond `restart weightloss.service` or `is-active weightloss.service`.
 
 #### Step 6 — Create the systemd service unit
 ```bash
@@ -135,7 +145,7 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
 Environment=Gemini__ApiKey=REPLACE_WITH_ACTUAL_VALUE
 Environment=Admin__ApiKey=REPLACE_WITH_ACTUAL_VALUE
-Environment=ConnectionStrings__DefaultConnection=Data Source=/var/lib/weightloss/weightloss.db
+Environment="ConnectionStrings__DefaultConnection=Data Source=/var/lib/weightloss/weightloss.db"
 
 [Install]
 WantedBy=multi-user.target
@@ -149,12 +159,19 @@ systemctl enable weightloss.service
 
 Replace `REPLACE_WITH_ACTUAL_VALUE` with your real Gemini API key and Admin API key **before** saving.
 
+**Quoting matters:** systemd's `Environment=` splits values on whitespace unless the entire assignment is double-quoted. The SQLite connection string contains a space (`Data Source=…`), so without the wrapping quotes systemd would pass only the literal value `Data` to the app and the SQLite driver would throw `Format of the initialization string does not conform to specification`.
+
+**Config precedence:** `Program.cs` reads `ConnectionStrings:DefaultConnection` from configuration and only falls back to a `LocalApplicationData`-derived path when nothing is configured. Setting the environment variable here is therefore authoritative — the same binary runs against `/var/lib/weightloss/weightloss.db` in production and a per-user dev path on a developer machine.
+
 #### Step 7 — Configure nginx
+
+Ubuntu's default nginx package ships with a `sites-enabled/default` that replies "Welcome to nginx" for any request that doesn't match another site's `server_name`. If the weightloss site uses a specific `server_name` and you visit the Droplet by IP (or before DNS has propagated), requests fall through to that default page and the app appears broken. Declare the weightloss site as `default_server` and set `server_name _;` (catch-all) so it handles anything that isn't explicitly routed.
+
 ```bash
 cat > /etc/nginx/sites-available/weightloss << 'EOF'
 server {
-    listen 80;
-    server_name YOUR_DOMAIN_HERE;
+    listen 80 default_server;
+    server_name _;
 
     location / {
         proxy_pass http://localhost:5000;
@@ -170,10 +187,14 @@ server {
 }
 EOF
 
+rm -f /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/sites-enabled/weightloss
 ln -s /etc/nginx/sites-available/weightloss /etc/nginx/sites-enabled/weightloss
-nginx -t && systemctl reload nginx
+nginx -t
+systemctl reload nginx
 ```
-Replace `YOUR_DOMAIN_HERE` with your actual domain (e.g. `tracker.example.com`). If you don't have a domain yet, use the Droplet IP temporarily and skip Step 8.
+
+Certbot (Step 8) will add `server_name <your-domain>` and the TLS listener when you later run it against a real domain; the catch-all on port 80 remains, which is what you want for HTTP→HTTPS redirects.
 
 #### Step 8 — Provision TLS certificate (requires domain pointing to Droplet IP)
 First, set your domain's DNS A record to the Droplet IP and wait for it to propagate (can take up to 30 minutes). Then:
@@ -258,10 +279,15 @@ jobs:
           username: ${{ secrets.DO_SSH_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            sudo systemctl restart weightloss.service
-            sleep 3
-            sudo systemctl is-active --quiet weightloss.service || exit 1
+            set -e
+            sudo /usr/bin/systemctl restart weightloss.service
+            sleep 8
+            state=$(sudo /usr/bin/systemctl is-active weightloss.service || true)
+            echo "service state: $state"
+            [ "$state" = "active" ]
 ```
+
+The two `sudo` invocations match the sudoers rule in Platform 3 Step 5 exactly (same absolute path, no extra flags). Health-check output comes from the echoed `service state:` line in the Actions log; the job fails cleanly when the final bracket test returns non-zero.
 
 ---
 
@@ -297,6 +323,30 @@ ASP.NET Core's configuration system automatically maps environment variables usi
 | HTTP traffic | nginx forces HTTPS redirect; Let's Encrypt cert auto-renews via Certbot |
 | Bad deploy reaches server | Tests must pass before deploy; health check verifies service starts |
 | Over-privileged deploy user | `weightloss` can only sudo two specific systemctl commands, nothing else |
+
+---
+
+## Runtime State: Data Protection Keys
+
+ASP.NET Core uses a Data Protection subsystem to sign/encrypt auth cookies and antiforgery tokens. If the key ring is in-memory (the default when no persistent store is configured), every service restart invalidates all sessions and forms.
+
+The app persists its key ring to disk next to the SQLite database:
+
+```
+/var/lib/weightloss/
+    ├── weightloss.db       ← SQLite database
+    └── dp-keys/            ← XML key ring, auto-created on first startup
+```
+
+This is configured in `WeightLossTracker/Program.cs`:
+
+```csharp
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .SetApplicationName("WeightLossTracker");
+```
+
+`keysDir` defaults to the SQLite DB's directory; it can be overridden with a `DataProtection:KeysPath` configuration value. The `weightloss` system user must own the parent directory (Pre-3 Step 3 sets `chown weightloss:weightloss /var/lib/weightloss`), so the app can create `dp-keys/` on first run without extra provisioning.
 
 ---
 
