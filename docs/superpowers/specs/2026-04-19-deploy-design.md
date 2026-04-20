@@ -194,14 +194,38 @@ nginx -t
 systemctl reload nginx
 ```
 
-Certbot (Step 8) will add `server_name <your-domain>` and the TLS listener when you later run it against a real domain; the catch-all on port 80 remains, which is what you want for HTTP→HTTPS redirects.
+The catch-all on port 80 remains after Certbot (Step 8) adds HTTPS, which is what you want for HTTP→HTTPS redirects.
 
-#### Step 8 — Provision TLS certificate (requires domain pointing to Droplet IP)
-First, set your domain's DNS A record to the Droplet IP and wait for it to propagate (can take up to 30 minutes). Then:
+**Before running Certbot**, replace `server_name _;` with the actual domain so the nginx plugin can attach the cert to the right server block:
+
 ```bash
-certbot --nginx -d YOUR_DOMAIN_HERE --non-interactive --agree-tos -m YOUR_EMAIL
+sudo sed -i 's/^\s*server_name .*/    server_name YOUR_DOMAIN_HERE;/' /etc/nginx/sites-available/weightloss
+sudo nginx -t
+sudo systemctl reload nginx
 ```
-Certbot automatically updates the nginx config and sets up auto-renewal.
+
+`listen 80 default_server;` stays, so the bare IP still reaches the app for debugging.
+
+#### Step 8 — Provision TLS certificate (required before the app is usable)
+
+The app issues its auth cookie with `CookieSecurePolicy.Always` in Production, so browsers refuse to send it back over plain HTTP — login silently fails with an immediate redirect back to the login page. HTTPS is a functional requirement of the auth flow, not just a security nice-to-have.
+
+First, set your domain's DNS A record to the Droplet IP. Verify propagation from the Droplet (do not proceed until `dig` returns the right IP):
+```bash
+dig +short YOUR_DOMAIN_HERE
+```
+
+Then issue the cert. The `--redirect` flag has Certbot install an HTTP→HTTPS 301 redirect automatically:
+```bash
+certbot --nginx -d YOUR_DOMAIN_HERE --non-interactive --agree-tos -m YOUR_EMAIL --redirect
+```
+
+Certbot modifies `/etc/nginx/sites-available/weightloss` in place (adding a `listen 443 ssl` block and a 301 redirect on port 80) and registers a `certbot.timer` systemd unit that renews the cert every 60 days. Verify:
+```bash
+curl -sI https://YOUR_DOMAIN_HERE/ | head -1
+curl -sI http://YOUR_DOMAIN_HERE/  | head -1
+```
+Expect `200`/`302` on HTTPS and `301` on HTTP.
 
 #### Step 9 — Open firewall ports
 ```bash
@@ -321,6 +345,7 @@ ASP.NET Core's configuration system automatically maps environment variables usi
 | Secrets in repository | All secrets in systemd unit file (`root:root 600`), not in `appsettings.json` |
 | Personal SSH key used for deploy | Dedicated deploy SSH keypair, private key stored as GitHub Secret only |
 | HTTP traffic | nginx forces HTTPS redirect; Let's Encrypt cert auto-renews via Certbot |
+| Session hijacking via cleartext cookies | `CookieSecurePolicy.Always` in Production — auth cookie carries `Secure` flag, never transmitted over HTTP. This means **the app cannot be used over plain HTTP**; HTTPS setup (Platform 3 Step 8) is a functional prerequisite, not an optional hardening step. |
 | Bad deploy reaches server | Tests must pass before deploy; health check verifies service starts |
 | Over-privileged deploy user | `weightloss` can only sudo two specific systemctl commands, nothing else |
 
