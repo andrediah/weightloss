@@ -261,96 +261,136 @@ async function renderDashboard() {
   const root = document.getElementById('view-root');
   const r = await Bridge.call('getDashboard');
   if (!r.ok) {
-    root.innerHTML = `<p class="text-red-600 dark:text-red-400 p-4">
+    root.innerHTML = `<p class="text-[var(--color-feedback-error)] p-4">
       Failed to load dashboard: ${escHtml(r.data?.detail || r.data)}</p>`;
     return;
   }
   const d = r.data;
-  const cwDisplay = d.currentWeight != null ? d.currentWeight.toFixed(1) + ' lbs' : '—';
+
+  lastCurrentWeight = d.currentWeight;
+  updateProfileUI();
+
+  const cw = d.currentWeight != null ? d.currentWeight.toFixed(1) : '—';
+  const lost = d.lostSoFar != null ? d.lostSoFar.toFixed(1) : '—';
+  const toGo = d.toGoal != null ? d.toGoal.toFixed(1) : '—';
 
   root.innerHTML = `
     <div class="space-y-6">
       <h1 class="${C.h1}">Dashboard</h1>
 
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" role="list" aria-label="Key metrics">
-        ${kpiCard('Current Weight', cwDisplay,          'text-indigo-600 dark:text-indigo-400',  'scale')}
-        ${kpiCard('Lost So Far',    d.lostSoFar + ' lbs','text-green-600 dark:text-green-400',  'trending-down')}
-        ${kpiCard('To Goal',        d.toGoal + ' lbs',   'text-orange-600 dark:text-orange-400','target')}
-        ${kpiCard('Days Logged',    d.daysLogged,         'text-purple-600 dark:text-purple-400','calendar')}
+      <!-- Stats banner: 3 equal-width cards -->
+      <div class="grid grid-cols-3 gap-4" role="list" aria-label="Key metrics">
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-text-primary)] leading-tight">
+            ${cw}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
+          </div>
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">CURRENT</div>
+        </div>
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-accent)] leading-tight">
+            −${lost}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
+          </div>
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">LOST</div>
+        </div>
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-text-primary)] leading-tight">
+            ${toGo}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
+          </div>
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">TO GO</div>
+        </div>
       </div>
 
+      <!-- Progress bar -->
       <div class="${C.card}">
-        <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
-          <span>Progress to goal</span>
-          <span class="font-semibold text-indigo-600 dark:text-indigo-400">${d.progressPct}%</span>
+        <div class="flex justify-between text-xs mb-2">
+          <span class="text-[var(--color-text-secondary)]">${d.startingWeight} lbs</span>
+          <span class="font-semibold text-[var(--color-accent)]">${d.progressPct}%</span>
+          <span class="text-[var(--color-text-secondary)]">${d.goalWeight} lbs</span>
         </div>
-        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"
+        <div class="w-full rounded-full overflow-hidden"
+             style="background: var(--color-accent-subtle); height: 6px;"
              role="progressbar" aria-valuenow="${d.progressPct}" aria-valuemin="0" aria-valuemax="100"
              aria-label="Weight loss progress">
-          <div class="bg-indigo-500 h-4 rounded-full transition-all duration-700"
-               style="width:${d.progressPct}%"></div>
-        </div>
-        <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-          <span>${d.startingWeight} lbs (start)</span><span>${d.goalWeight} lbs (goal)</span>
+          <div class="rounded-full transition-all duration-700"
+               style="width:${d.progressPct}%; height: 6px; background: linear-gradient(90deg, var(--color-accent), #22c55e)"></div>
         </div>
       </div>
 
-      <div class="${C.card}">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Weight trend</h2>
-        ${d.chart.labels.length === 0
-          ? `<p class="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
-               No weight entries yet. Log your first weight to see the chart.
-             </p>`
-          : '<canvas id="weight-chart" height="100"></canvas>'}
+      <!-- Chart + Quick-log panel -->
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_160px] gap-4 items-start">
+        <div class="${C.card}">
+          <h2 class="${C.h2}">Weight trend</h2>
+          ${d.chart.labels.length === 0
+            ? `<p class="text-[var(--color-text-disabled)] text-sm text-center py-8">
+                 No weight entries yet. Log your first weight to see the chart.
+               </p>`
+            : '<canvas id="weight-chart" height="120"></canvas>'}
+        </div>
+
+        <!-- Quick-log panel -->
+        <div class="${C.card} flex flex-col gap-3">
+          <h2 class="text-sm font-semibold text-[var(--color-text-secondary)]">Quick Log</h2>
+          <button onclick="navigate('weight')"
+                  class="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-inverted)] px-4 py-2.5 rounded-lg font-semibold transition-colors min-h-[44px] text-sm w-full">
+            ＋ Weight
+          </button>
+          <button onclick="navigate('meals')"
+                  class="bg-[var(--color-accent-subtle)] text-[var(--color-accent-text)] border border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverted)] px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors min-h-[44px] w-full">
+            ＋ Meal
+          </button>
+        </div>
       </div>
     </div>`;
 
   if (d.chart.labels.length > 0) {
-    const isDark = document.documentElement.classList.contains('dark');
-    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    const tickColor = isDark ? '#9ca3af' : '#6b7280';
+    const labels  = d.chart.labels.slice(-7);
+    const weights = d.chart.weights.slice(-7);
+    const isDark  = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+    const tickColor = isDark ? getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim()
+                              : getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim();
+
+    const accentHex = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+    const hexMatch  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(accentHex);
+    const rgb = hexMatch
+      ? { r: parseInt(hexMatch[1], 16), g: parseInt(hexMatch[2], 16), b: parseInt(hexMatch[3], 16) }
+      : { r: 22, g: 163, b: 74 };
+    const n = labels.length;
+    const bgColors = labels.map((_, i) => {
+      const alpha = (0.3 + 0.7 * (i / Math.max(n - 1, 1))).toFixed(2);
+      return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+    });
+
     const ctx = document.getElementById('weight-chart').getContext('2d');
-    const goalLine = Array(d.chart.labels.length).fill(d.goalWeight);
     activeChart = new Chart(ctx, {
-      type: 'line',
+      type: 'bar',
       data: {
-        labels: d.chart.labels,
-        datasets: [
-          {
-            label: 'Weight (lbs)',
-            data: d.chart.weights,
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99,102,241,0.1)',
-            tension: 0.3,
-            pointRadius: 4,
-            fill: true
-          },
-          {
-            label: 'Trend',
-            data: d.chart.trendLine,
-            borderColor: '#f97316',
-            borderDash: [6,3],
-            pointRadius: 0,
-            tension: 0
-          },
-          {
-            label: 'Goal',
-            data: goalLine,
-            borderColor: '#22c55e',
-            borderDash: [4,4],
-            pointRadius: 0,
-            tension: 0
-          }
-        ]
+        labels,
+        datasets: [{
+          label: 'Weight (lbs)',
+          data: weights,
+          backgroundColor: bgColors,
+          borderColor: 'transparent',
+          borderRadius: 4,
+        }]
       },
       options: {
         responsive: true,
-        plugins: { legend: { position: 'top', labels: { color: tickColor } } },
+        plugins: {
+          legend: { display: false }
+        },
         scales: {
-          x: { ticks: { color: tickColor }, grid: { color: gridColor } },
-          y: { ticks: { color: tickColor }, grid: { color: gridColor },
-               title: { display: true, text: 'lbs', color: tickColor } }
-        }
+          x: {
+            ticks: { color: tickColor, font: { size: 11 } },
+            grid:  { color: gridColor, lineWidth: 0.5 }
+          },
+          y: {
+            ticks: { color: tickColor, font: { size: 11 } },
+            grid:  { color: gridColor, lineWidth: 0.5 },
+            title: { display: true, text: 'lbs', color: tickColor }
+          }
+        },
+        backgroundColor: 'transparent'
       }
     });
   }
