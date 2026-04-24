@@ -28,6 +28,7 @@ let activeChart = null;
 let activeProfile = null;
 let currentUser = null;
 let currentView = 'dashboard';
+let lastCurrentWeight = null;
 
 // ─── Markdown renderer ─────────────────────────────────────────────────────────
 function md(text) {
@@ -162,11 +163,18 @@ async function handleLogout() {
 function updateProfileUI() {
   if (!activeProfile || !currentUser) return;
 
-  const goalText = `Goal: ${activeProfile.startingWeight} → ${activeProfile.goalWeight} lbs`;
-  const lossText = `${Math.round(activeProfile.startingWeight - activeProfile.goalWeight)} lbs to lose`;
+  const sw = activeProfile.startingWeight ?? 0;
+  const gw = activeProfile.goalWeight ?? 0;
+  const cw = lastCurrentWeight ?? sw;
+  const pct = sw === gw ? 0 : Math.min(100, Math.max(0, ((sw - cw) / (sw - gw)) * 100));
 
-  const sidebarGoal = document.getElementById('sidebar-goal-text');
-  if (sidebarGoal) sidebarGoal.innerHTML = `${escHtml(goalText)}<br><span class="text-indigo-500">${escHtml(lossText)}</span>`;
+  const progress = document.getElementById('sidebar-progress');
+  if (progress) {
+    const fill = progress.querySelector('.progress-fill');
+    const label = progress.querySelector('.progress-label');
+    if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+    if (label) label.textContent = `${Math.round(pct)}% to goal`;
+  }
 
   const sidebarUsername = document.getElementById('sidebar-username');
   if (sidebarUsername) sidebarUsername.textContent = currentUser.username;
@@ -224,10 +232,7 @@ function navigate(viewName) {
   // Desktop sidebar active state
   document.querySelectorAll('[data-nav]').forEach(el => {
     const active = el.dataset.nav === viewName;
-    el.classList.toggle('bg-indigo-700',            active);
-    el.classList.toggle('dark:bg-indigo-800',       active);
-    el.classList.toggle('text-white',               active);
-    el.classList.toggle('text-indigo-100',         !active);
+    el.classList.toggle('nav-active', active);
   });
   // Mobile bottom tab active state
   document.querySelectorAll('[data-mobile-nav]').forEach(el => {
@@ -237,7 +242,7 @@ function navigate(viewName) {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="flex justify-center py-16" role="status" aria-label="Loading">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[var(--color-accent)]"></div>
     </div>`;
 
   const views = {
