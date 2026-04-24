@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -64,6 +65,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+
+// ─── Data Protection ──────────────────────────────────────────────────────────
+// Persist keys to disk so auth cookies and antiforgery tokens survive restarts.
+var keysDir = builder.Configuration["DataProtection:KeysPath"]
+    ?? Path.Combine(Path.GetDirectoryName(dbPath) ?? AppContext.BaseDirectory, "dp-keys");
+Directory.CreateDirectory(keysDir);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .SetApplicationName("WeightLossTracker");
 
 var app = builder.Build();
 
