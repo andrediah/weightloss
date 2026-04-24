@@ -135,7 +135,14 @@
 
     /* ─── Mobile bottom-tab active state ──────────────────────────────────── */
     [data-mobile-nav] { border-top: 2px solid transparent; }
-    [data-mobile-nav].mobile-tab-active { border-top-color: #a5b4fc; color: #ffffff; }
+    [data-mobile-nav].mobile-tab-active { border-top-color: var(--color-accent); color: var(--color-accent); }
+    .nav-active {
+      background: var(--color-nav-active-bg) !important;
+      color: var(--color-nav-active-text) !important;
+      border-left: 2px solid var(--color-nav-active-border);
+      padding-left: calc(1rem - 2px) !important;
+    }
+    .nav-item:hover:not(.nav-active) { background: var(--color-accent-subtle); }
 
     /* ─── Reduced motion ───────────────────────────────────────────────────── */
     @media (prefers-reduced-motion: reduce) {
@@ -154,25 +161,22 @@
 
     /* ─── Scrollbar ────────────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    .dark ::-webkit-scrollbar-track { background: #1e293b; }
-    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    ::-webkit-scrollbar-track { background: var(--color-surface-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--color-border-subtle); border-radius: 4px; }
 
     /* ─── Prose (markdown renderer output) ────────────────────────────────── */
     .prose ul { list-style: disc; padding-left: 1.25rem; }
-    .prose h2 { color: #4f46e5; font-weight: 700; font-size: 1.1rem; margin-top: 1rem; }
+    .prose h2 { color: var(--color-accent); font-weight: 700; font-size: 1.1rem; margin-top: 1rem; }
     .prose h3 { font-weight: 600; margin-top: 0.75rem; }
     .prose li { margin-bottom: 0.25rem; }
     .prose p  { margin-bottom: 0.5rem; }
-    .dark .prose h2 { color: #818cf8; }
   </style>
 </head>
-<body class="h-full bg-gray-100 dark:bg-gray-900 flex flex-col md:flex-row transition-colors duration-200">
+<body class="h-full bg-[var(--color-surface-primary)] flex flex-col md:flex-row transition-colors duration-200">
 
   <!-- Skip navigation (accessibility) -->
   <a href="#main-content"
-     class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium">
+     class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-[var(--color-accent)] focus:text-[var(--color-text-inverted)] focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium">
     Skip to main content
   </a>
 
