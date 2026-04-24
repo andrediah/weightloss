@@ -7,7 +7,20 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git -C C:/Development/Weightloss log --oneline -10)",
+      "Bash(git -C C:/Development/Weightloss add docs/superpowers/specs/2026-04-19-deploy-design.md)",
+      "Bash(git -C C:/Development/Weightloss commit -m \"docs: add deployment design spec for GitHub → Digital Ocean Droplet\")",
+      "Bash(git -C C:/Development/Weightloss commit -m \"docs: fix sudoers detail in deploy spec\")",
+      "Bash(git -C C:/Development/Weightloss commit -m \"docs: expand deploy spec with detailed step-by-step platform instructions\")",
+      "Bash(git commit *)",
+      "Bash(git -C C:/Development/Weightloss show HEAD --stat)",
+      "Bash(git -C C:/Development/Weightloss show HEAD:WeightLossTracker/appsettings.json)",
+      "Bash(dotnet test *)",
+      "Bash(C:\\\\Users\\\\Andre\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.0.7\\\\skills\\\\brainstorming\\\\scripts\\\\start-server.sh *)",
+      "Bash(curl *)",
+      "Bash(netstat -ano)",
+      "Bash(powershell *)"
     ]
   }
 }

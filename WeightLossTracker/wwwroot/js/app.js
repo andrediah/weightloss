@@ -4,23 +4,23 @@ const DISPLAY_ORDER = [1,2,3,4,5,6,0]; // Mon–Sun display order
 
 // Reusable Tailwind class sets (light + dark variants) for dynamic HTML
 const C = {
-  card:        'bg-white dark:bg-gray-800 rounded-xl shadow p-5',
-  h1:          'text-2xl font-bold text-gray-800 dark:text-gray-100',
-  h2:          'text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4',
-  h3:          'font-semibold text-gray-800 dark:text-gray-100',
-  label:       'block text-sm text-gray-600 dark:text-gray-300 mb-1',
-  bodyText:    'text-sm text-gray-700 dark:text-gray-200',
-  mutedText:   'text-sm text-gray-500 dark:text-gray-400',
-  tinyText:    'text-xs text-gray-400 dark:text-gray-500',
-  input:       'border dark:border-gray-600 rounded-lg px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:focus:ring-indigo-500',
-  inputSm:     'border dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400',
-  select:      'border dark:border-gray-600 rounded-lg px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400',
-  btnPrimary:  'bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition-colors min-h-[44px]',
-  btnSuccess:  'bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition-colors min-h-[44px]',
-  btnSecondary:'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-  btnSmPrimary:'text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded px-2 py-1 transition-colors',
-  trow:        'border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50',
-  divider:     'border-b dark:border-gray-700',
+  card:        'bg-[var(--color-surface-card)] border border-[var(--color-border-subtle)] rounded-xl shadow-sm p-5',
+  h1:          'text-2xl font-bold text-[var(--color-text-primary)]',
+  h2:          'text-lg font-semibold text-[var(--color-text-secondary)] mb-4',
+  h3:          'font-semibold text-[var(--color-text-primary)]',
+  label:       'block text-sm text-[var(--color-text-secondary)] mb-1',
+  bodyText:    'text-sm text-[var(--color-text-primary)]',
+  mutedText:   'text-sm text-[var(--color-text-secondary)]',
+  tinyText:    'text-xs text-[var(--color-text-disabled)]',
+  input:       'border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 w-full bg-[var(--color-surface-card)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent placeholder:text-[var(--color-text-disabled)]',
+  inputSm:     'border border-[var(--color-border-subtle)] rounded px-2 py-1 bg-[var(--color-surface-card)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] focus:border-transparent',
+  select:      'border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 w-full bg-[var(--color-surface-card)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent',
+  btnPrimary:  'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-inverted)] px-5 py-2 rounded-lg font-semibold transition-colors min-h-[44px]',
+  btnSuccess:  'bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-inverted)] py-2 rounded-lg font-semibold transition-colors min-h-[44px]',
+  btnSecondary:'bg-[var(--color-accent-subtle)] text-[var(--color-accent-text)] border border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverted)] px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
+  btnSmPrimary:'text-xs bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-inverted)] rounded px-2 py-1 transition-colors',
+  trow:        'border-b border-[var(--color-border-subtle)] last:border-0 hover:bg-[var(--color-accent-subtle)]',
+  divider:     'border-b border-[var(--color-border-subtle)]',
   badge:       'text-xs font-semibold px-2 py-0.5 rounded-full',
 };
 
@@ -28,20 +28,21 @@ let activeChart = null;
 let activeProfile = null;
 let currentUser = null;
 let currentView = 'dashboard';
+let lastCurrentWeight = null;
 
 // ─── Markdown renderer ─────────────────────────────────────────────────────────
 function md(text) {
   if (!text) return '';
   return text
-    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1 text-gray-800 dark:text-gray-100">$1</h3>')
-    .replace(/^## (.+)$/gm,  '<h2 class="text-lg font-bold mt-4 mb-2 text-indigo-700 dark:text-indigo-400">$1</h2>')
-    .replace(/^# (.+)$/gm,   '<h1 class="text-xl font-bold mt-4 mb-2 text-gray-800 dark:text-gray-100">$1</h1>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1 text-[var(--color-text-primary)]">$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2 class="text-lg font-bold mt-4 mb-2 text-[var(--color-accent)]">$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1 class="text-xl font-bold mt-4 mb-2 text-[var(--color-text-primary)]">$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g,     '<em>$1</em>')
-    .replace(/^- (.+)$/gm,    '<li class="ml-4 list-disc text-gray-700 dark:text-gray-200">$1</li>')
+    .replace(/^- (.+)$/gm,    '<li class="ml-4 list-disc text-[var(--color-text-primary)]">$1</li>')
     .replace(/(<li[\s\S]*?<\/li>)/g, '<ul class="my-1">$1</ul>')
-    .replace(/\n{2,}/g, '</p><p class="mt-2 text-gray-700 dark:text-gray-200">')
-    .replace(/^(?!<[hul])(.+)$/gm, '<p class="mt-1 text-gray-700 dark:text-gray-200">$1</p>');
+    .replace(/\n{2,}/g, '</p><p class="mt-2 text-[var(--color-text-primary)]">')
+    .replace(/^(?!<[hul])(.+)$/gm, '<p class="mt-1 text-[var(--color-text-primary)]">$1</p>');
 }
 
 // ─── Error display ─────────────────────────────────────────────────────────────
@@ -162,11 +163,18 @@ async function handleLogout() {
 function updateProfileUI() {
   if (!activeProfile || !currentUser) return;
 
-  const goalText = `Goal: ${activeProfile.startingWeight} → ${activeProfile.goalWeight} lbs`;
-  const lossText = `${Math.round(activeProfile.startingWeight - activeProfile.goalWeight)} lbs to lose`;
+  const sw = activeProfile.startingWeight ?? 0;
+  const gw = activeProfile.goalWeight ?? 0;
+  const cw = lastCurrentWeight ?? sw;
+  const pct = sw === gw ? 0 : Math.min(100, Math.max(0, ((sw - cw) / (sw - gw)) * 100));
 
-  const sidebarGoal = document.getElementById('sidebar-goal-text');
-  if (sidebarGoal) sidebarGoal.innerHTML = `${escHtml(goalText)}<br><span class="text-indigo-500">${escHtml(lossText)}</span>`;
+  const progress = document.getElementById('sidebar-progress');
+  if (progress) {
+    const fill = progress.querySelector('.progress-fill');
+    const label = progress.querySelector('.progress-label');
+    if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+    if (label) label.textContent = `${Math.round(pct)}% to goal`;
+  }
 
   const sidebarUsername = document.getElementById('sidebar-username');
   if (sidebarUsername) sidebarUsername.textContent = currentUser.username;
@@ -224,10 +232,7 @@ function navigate(viewName) {
   // Desktop sidebar active state
   document.querySelectorAll('[data-nav]').forEach(el => {
     const active = el.dataset.nav === viewName;
-    el.classList.toggle('bg-indigo-700',            active);
-    el.classList.toggle('dark:bg-indigo-800',       active);
-    el.classList.toggle('text-white',               active);
-    el.classList.toggle('text-indigo-100',         !active);
+    el.classList.toggle('nav-active', active);
   });
   // Mobile bottom tab active state
   document.querySelectorAll('[data-mobile-nav]').forEach(el => {
@@ -237,7 +242,7 @@ function navigate(viewName) {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="flex justify-center py-16" role="status" aria-label="Loading">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[var(--color-accent)]"></div>
     </div>`;
 
   const views = {
@@ -256,96 +261,136 @@ async function renderDashboard() {
   const root = document.getElementById('view-root');
   const r = await Bridge.call('getDashboard');
   if (!r.ok) {
-    root.innerHTML = `<p class="text-red-600 dark:text-red-400 p-4">
+    root.innerHTML = `<p class="text-[var(--color-feedback-error)] p-4">
       Failed to load dashboard: ${escHtml(r.data?.detail || r.data)}</p>`;
     return;
   }
   const d = r.data;
-  const cwDisplay = d.currentWeight != null ? d.currentWeight.toFixed(1) + ' lbs' : '—';
+
+  lastCurrentWeight = d.currentWeight;
+  updateProfileUI();
+
+  const cw = d.currentWeight != null ? d.currentWeight.toFixed(1) : '—';
+  const lost = d.lostSoFar != null ? d.lostSoFar.toFixed(1) : '—';
+  const toGo = d.toGoal != null ? d.toGoal.toFixed(1) : '—';
 
   root.innerHTML = `
     <div class="space-y-6">
       <h1 class="${C.h1}">Dashboard</h1>
 
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" role="list" aria-label="Key metrics">
-        ${kpiCard('Current Weight', cwDisplay,          'text-indigo-600 dark:text-indigo-400',  'scale')}
-        ${kpiCard('Lost So Far',    d.lostSoFar + ' lbs','text-green-600 dark:text-green-400',  'trending-down')}
-        ${kpiCard('To Goal',        d.toGoal + ' lbs',   'text-orange-600 dark:text-orange-400','target')}
-        ${kpiCard('Days Logged',    d.daysLogged,         'text-purple-600 dark:text-purple-400','calendar')}
+      <!-- Stats banner: 3 equal-width cards -->
+      <div class="grid grid-cols-3 gap-4" role="list" aria-label="Key metrics">
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-text-primary)] leading-tight">
+            ${cw}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
+          </div>
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">CURRENT</div>
+        </div>
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-accent)] leading-tight">
+            −${lost}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
+          </div>
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">LOST</div>
+        </div>
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-text-primary)] leading-tight">
+            ${toGo}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
+          </div>
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">TO GO</div>
+        </div>
       </div>
 
+      <!-- Progress bar -->
       <div class="${C.card}">
-        <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
-          <span>Progress to goal</span>
-          <span class="font-semibold text-indigo-600 dark:text-indigo-400">${d.progressPct}%</span>
+        <div class="flex justify-between text-xs mb-2">
+          <span class="text-[var(--color-text-secondary)]">${d.startingWeight} lbs</span>
+          <span class="font-semibold text-[var(--color-accent)]">${d.progressPct}%</span>
+          <span class="text-[var(--color-text-secondary)]">${d.goalWeight} lbs</span>
         </div>
-        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden"
+        <div class="w-full rounded-full overflow-hidden"
+             style="background: var(--color-accent-subtle); height: 6px;"
              role="progressbar" aria-valuenow="${d.progressPct}" aria-valuemin="0" aria-valuemax="100"
              aria-label="Weight loss progress">
-          <div class="bg-indigo-500 h-4 rounded-full transition-all duration-700"
-               style="width:${d.progressPct}%"></div>
-        </div>
-        <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-          <span>${d.startingWeight} lbs (start)</span><span>${d.goalWeight} lbs (goal)</span>
+          <div class="rounded-full transition-all duration-700"
+               style="width:${d.progressPct}%; height: 6px; background: linear-gradient(90deg, var(--color-accent), #22c55e)"></div>
         </div>
       </div>
 
-      <div class="${C.card}">
-        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Weight trend</h2>
-        ${d.chart.labels.length === 0
-          ? `<p class="text-gray-400 dark:text-gray-500 text-sm text-center py-8">
-               No weight entries yet. Log your first weight to see the chart.
-             </p>`
-          : '<canvas id="weight-chart" height="100"></canvas>'}
+      <!-- Chart + Quick-log panel -->
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_160px] gap-4 items-start">
+        <div class="${C.card}">
+          <h2 class="${C.h2}">Weight trend</h2>
+          ${d.chart.labels.length === 0
+            ? `<p class="text-[var(--color-text-disabled)] text-sm text-center py-8">
+                 No weight entries yet. Log your first weight to see the chart.
+               </p>`
+            : '<canvas id="weight-chart" height="120"></canvas>'}
+        </div>
+
+        <!-- Quick-log panel -->
+        <div class="${C.card} flex flex-col gap-3">
+          <h2 class="text-sm font-semibold text-[var(--color-text-secondary)]">Quick Log</h2>
+          <button onclick="navigate('weight')"
+                  class="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-text-inverted)] px-4 py-2.5 rounded-lg font-semibold transition-colors min-h-[44px] text-sm w-full">
+            ＋ Weight
+          </button>
+          <button onclick="navigate('meals')"
+                  class="bg-[var(--color-accent-subtle)] text-[var(--color-accent-text)] border border-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-text-inverted)] px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors min-h-[44px] w-full">
+            ＋ Meal
+          </button>
+        </div>
       </div>
     </div>`;
 
   if (d.chart.labels.length > 0) {
-    const isDark = document.documentElement.classList.contains('dark');
-    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    const tickColor = isDark ? '#9ca3af' : '#6b7280';
+    const labels  = d.chart.labels.slice(-7);
+    const weights = d.chart.weights.slice(-7);
+    const isDark  = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+    const tickColor = isDark ? getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim()
+                              : getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim();
+
+    const accentHex = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+    const hexMatch  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(accentHex);
+    const rgb = hexMatch
+      ? { r: parseInt(hexMatch[1], 16), g: parseInt(hexMatch[2], 16), b: parseInt(hexMatch[3], 16) }
+      : { r: 22, g: 163, b: 74 };
+    const n = labels.length;
+    const bgColors = labels.map((_, i) => {
+      const alpha = (0.3 + 0.7 * (i / Math.max(n - 1, 1))).toFixed(2);
+      return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+    });
+
     const ctx = document.getElementById('weight-chart').getContext('2d');
-    const goalLine = Array(d.chart.labels.length).fill(d.goalWeight);
     activeChart = new Chart(ctx, {
-      type: 'line',
+      type: 'bar',
       data: {
-        labels: d.chart.labels,
-        datasets: [
-          {
-            label: 'Weight (lbs)',
-            data: d.chart.weights,
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99,102,241,0.1)',
-            tension: 0.3,
-            pointRadius: 4,
-            fill: true
-          },
-          {
-            label: 'Trend',
-            data: d.chart.trendLine,
-            borderColor: '#f97316',
-            borderDash: [6,3],
-            pointRadius: 0,
-            tension: 0
-          },
-          {
-            label: 'Goal',
-            data: goalLine,
-            borderColor: '#22c55e',
-            borderDash: [4,4],
-            pointRadius: 0,
-            tension: 0
-          }
-        ]
+        labels,
+        datasets: [{
+          label: 'Weight (lbs)',
+          data: weights,
+          backgroundColor: bgColors,
+          borderColor: 'transparent',
+          borderRadius: 4,
+        }]
       },
       options: {
         responsive: true,
-        plugins: { legend: { position: 'top', labels: { color: tickColor } } },
+        plugins: {
+          legend: { display: false }
+        },
         scales: {
-          x: { ticks: { color: tickColor }, grid: { color: gridColor } },
-          y: { ticks: { color: tickColor }, grid: { color: gridColor },
-               title: { display: true, text: 'lbs', color: tickColor } }
-        }
+          x: {
+            ticks: { color: tickColor, font: { size: 11 } },
+            grid:  { color: gridColor, lineWidth: 0.5 }
+          },
+          y: {
+            ticks: { color: tickColor, font: { size: 11 } },
+            grid:  { color: gridColor, lineWidth: 0.5 },
+            title: { display: true, text: 'lbs', color: tickColor }
+          }
+        },
+        backgroundColor: 'transparent'
       }
     });
   }
