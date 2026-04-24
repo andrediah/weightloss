@@ -34,15 +34,15 @@ let lastCurrentWeight = null;
 function md(text) {
   if (!text) return '';
   return text
-    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1 text-gray-800 dark:text-gray-100">$1</h3>')
-    .replace(/^## (.+)$/gm,  '<h2 class="text-lg font-bold mt-4 mb-2 text-indigo-700 dark:text-indigo-400">$1</h2>')
-    .replace(/^# (.+)$/gm,   '<h1 class="text-xl font-bold mt-4 mb-2 text-gray-800 dark:text-gray-100">$1</h1>')
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-3 mb-1 text-[var(--color-text-primary)]">$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2 class="text-lg font-bold mt-4 mb-2 text-[var(--color-accent)]">$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1 class="text-xl font-bold mt-4 mb-2 text-[var(--color-text-primary)]">$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g,     '<em>$1</em>')
-    .replace(/^- (.+)$/gm,    '<li class="ml-4 list-disc text-gray-700 dark:text-gray-200">$1</li>')
+    .replace(/^- (.+)$/gm,    '<li class="ml-4 list-disc text-[var(--color-text-primary)]">$1</li>')
     .replace(/(<li[\s\S]*?<\/li>)/g, '<ul class="my-1">$1</ul>')
-    .replace(/\n{2,}/g, '</p><p class="mt-2 text-gray-700 dark:text-gray-200">')
-    .replace(/^(?!<[hul])(.+)$/gm, '<p class="mt-1 text-gray-700 dark:text-gray-200">$1</p>');
+    .replace(/\n{2,}/g, '</p><p class="mt-2 text-[var(--color-text-primary)]">')
+    .replace(/^(?!<[hul])(.+)$/gm, '<p class="mt-1 text-[var(--color-text-primary)]">$1</p>');
 }
 
 // ─── Error display ─────────────────────────────────────────────────────────────
