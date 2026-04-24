@@ -72,3 +72,15 @@ public class AiPromptLog
     public int InputTokens { get; set; }
     public int OutputTokens { get; set; }
 }
+
+public class BloodPressureEntry
+{
+    public int Id { get; set; }
+    public int UserProfileId { get; set; }
+    public UserProfile? UserProfile { get; set; }
+    public int Systolic { get; set; }
+    public int Diastolic { get; set; }
+    public int Pulse { get; set; }
+    public string? Notes { get; set; }
+    public DateTime RecordedAt { get; set; }
+}
