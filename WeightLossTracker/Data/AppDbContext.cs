@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WorkoutScheduleDay> WorkoutScheduleDays => Set<WorkoutScheduleDay>();
     public DbSet<ExerciseSuggestion> ExerciseSuggestions => Set<ExerciseSuggestion>();
     public DbSet<AiPromptLog> AiPromptLogs => Set<AiPromptLog>();
+    public DbSet<BloodPressureEntry> BloodPressureEntries => Set<BloodPressureEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +84,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(l => l.UserProfile)
             .WithMany()
             .HasForeignKey(l => l.UserProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<BloodPressureEntry>()
+            .HasOne(b => b.UserProfile)
+            .WithMany()
+            .HasForeignKey(b => b.UserProfileId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
