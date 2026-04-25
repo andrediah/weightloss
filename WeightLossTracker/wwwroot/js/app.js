@@ -708,12 +708,25 @@ function renderBpTable(entries) {
     </div>`;
 }
 
+function bpBadge(category) {
+  const map = {
+    'Hypotension': 'background:#93c5fd;color:#1e3a5f',
+    'Normal':      'background:#86efac;color:#14532d',
+    'Elevated':    'background:#fde68a;color:#78350f',
+    'Stage 1':     'background:#fdba74;color:#7c2d12',
+    'Stage 2':     'background:#f87171;color:#7f1d1d',
+    'Crisis':      'background:#dc2626;color:#fff',
+  };
+  if (!category || !map[category]) return '';
+  return `<span style="${map[category]};display:inline-block;padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:600;vertical-align:middle;margin-left:4px">${escHtml(category)}</span>`;
+}
+
 function bpRow(e) {
   const notes = e.notes ? escHtml(e.notes.length > 40 ? e.notes.slice(0, 40) + '…' : e.notes) : '';
   return `
     <tr class="${C.trow}">
       <td class="py-2 pr-4 text-[var(--color-text-secondary)]">${fmtDateTime(e.recordedAt)}</td>
-      <td class="py-2 pr-4 font-semibold text-[var(--color-text-primary)]">${e.systolic}/${e.diastolic} <span class="${C.tinyText}">mmHg</span></td>
+      <td class="py-2 pr-4 font-semibold text-[var(--color-text-primary)]">${e.systolic}/${e.diastolic} <span class="${C.tinyText}">mmHg</span>${bpBadge(e.category)}</td>
       <td class="py-2 pr-4 text-[var(--color-text-secondary)]">${e.pulse} <span class="${C.tinyText}">bpm</span></td>
       <td class="py-2 flex-1 text-[var(--color-text-disabled)]">${notes}</td>
       <td class="py-2">
