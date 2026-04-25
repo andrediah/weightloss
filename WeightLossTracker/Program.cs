@@ -484,7 +484,8 @@ app.MapGet("/api/bp", async (AppDbContext db, HttpContext ctx) =>
             b.Diastolic,
             b.Pulse,
             b.Notes,
-            b.RecordedAt
+            b.RecordedAt,
+            b.Category
         })
         .ToListAsync());
 }).RequireAuthorization();
@@ -506,12 +507,14 @@ app.MapPost("/api/bp", async (AppDbContext db, HttpContext ctx, BpEntryRequest r
         Diastolic     = req.Diastolic,
         Pulse         = req.Pulse,
         Notes         = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim(),
-        RecordedAt    = req.RecordedAt ?? DateTime.UtcNow
+        RecordedAt    = req.RecordedAt ?? DateTime.UtcNow,
+        Category      = BpCategoryService.Classify(req.Systolic, req.Diastolic)
     };
     db.BloodPressureEntries.Add(entry);
     await db.SaveChangesAsync();
     return Results.Created($"/api/bp/{entry.Id}", new {
-        entry.Id, entry.Systolic, entry.Diastolic, entry.Pulse, entry.Notes, entry.RecordedAt
+        entry.Id, entry.Systolic, entry.Diastolic, entry.Pulse,
+        entry.Notes, entry.RecordedAt, entry.Category
     });
 }).RequireAuthorization();
 
