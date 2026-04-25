@@ -278,8 +278,8 @@ async function renderDashboard() {
     <div class="space-y-6">
       <h1 class="${C.h1}">Dashboard</h1>
 
-      <!-- Stats banner: 3 equal-width cards -->
-      <div class="grid grid-cols-3 gap-4" role="list" aria-label="Key metrics">
+      <!-- Stats banner: 4 equal-width cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" role="list" aria-label="Key metrics">
         <div class="${C.card} text-center dark:border-0" role="listitem">
           <div class="text-[1.5rem] font-extrabold text-[var(--color-text-primary)] leading-tight">
             ${cw}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
@@ -297,6 +297,13 @@ async function renderDashboard() {
             ${toGo}<sup class="text-sm font-normal text-[var(--color-text-secondary)]">lbs</sup>
           </div>
           <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">TO GO</div>
+        </div>
+        <div class="${C.card} text-center dark:border-0" role="listitem">
+          <div class="text-[1.5rem] font-extrabold text-[var(--color-text-primary)] leading-tight">
+            ${d.latestBp ? d.latestBp.systolic + '/' + d.latestBp.diastolic : '—'}
+          </div>
+          ${d.latestBp ? '<div class="' + C.tinyText + ' mt-0.5">' + d.latestBp.pulse + ' bpm</div>' : ''}
+          <div class="text-[0.6rem] uppercase tracking-[0.8px] text-[var(--color-text-disabled)] mt-1">BLOOD PRESSURE</div>
         </div>
       </div>
 
