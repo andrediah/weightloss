@@ -175,12 +175,12 @@
     .logo-dark { display: none; }
     @media (prefers-color-scheme: dark) {
       .logo-light { display: none; }
-      .logo-dark  { display: inline; }
+      .logo-dark  { display: inline-block; }
     }
-    [data-theme="light"] .logo-light { display: inline; }
+    [data-theme="light"] .logo-light { display: inline-block; }
     [data-theme="light"] .logo-dark  { display: none;   }
     [data-theme="dark"]  .logo-light { display: none;   }
-    [data-theme="dark"]  .logo-dark  { display: inline; }
+    [data-theme="dark"]  .logo-dark  { display: inline-block; }
   </style>
 </head>
 <body class="h-full bg-[var(--color-surface-primary)] flex flex-col md:flex-row transition-colors duration-200">
