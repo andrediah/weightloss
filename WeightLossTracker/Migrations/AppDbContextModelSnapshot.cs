@@ -64,6 +64,10 @@ namespace WeightLossTracker.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Category")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Diastolic")
                         .HasColumnType("INTEGER");
 
