@@ -500,6 +500,231 @@ async function renderWeightContent(container) {
   });
 }
 
+// ─── BLOOD PRESSURE ───────────────────────────────────────────────────────────
+async function renderBloodPressureContent(container) {
+  const pad = n => String(n).padStart(2, '0');
+  const now = new Date();
+  const localDt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  container.innerHTML = `
+    <div class="space-y-4">
+      <h2 class="${C.h2}">Blood Pressure</h2>
+
+      <div class="${C.card}">
+        <div id="bp-error"></div>
+        <form id="bp-form" class="space-y-3" novalidate>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label for="bp-systolic" class="${C.label}">Systolic <span class="text-[var(--color-text-disabled)]">(mmHg)</span></label>
+              <input id="bp-systolic" type="number" min="60" max="250" required
+                     class="${C.input}" placeholder="e.g. 120">
+            </div>
+            <div>
+              <label for="bp-diastolic" class="${C.label}">Diastolic <span class="text-[var(--color-text-disabled)]">(mmHg)</span></label>
+              <input id="bp-diastolic" type="number" min="40" max="150" required
+                     class="${C.input}" placeholder="e.g. 80">
+            </div>
+            <div>
+              <label for="bp-pulse" class="${C.label}">Pulse <span class="text-[var(--color-text-disabled)]">(bpm)</span></label>
+              <input id="bp-pulse" type="number" min="30" max="200" required
+                     class="${C.input}" placeholder="e.g. 72">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="bp-notes" class="${C.label}">Notes <span class="text-[var(--color-text-disabled)]">(optional)</span></label>
+              <input id="bp-notes" type="text" maxlength="500"
+                     class="${C.input}" placeholder="e.g. morning reading">
+            </div>
+            <div>
+              <label for="bp-datetime" class="${C.label}">Date &amp; time</label>
+              <input id="bp-datetime" type="datetime-local" required
+                     value="${localDt}" class="${C.input}">
+            </div>
+          </div>
+          <button id="bp-submit" type="submit" disabled
+                  class="${C.btnPrimary} px-5 opacity-50 cursor-not-allowed">
+            Save reading
+          </button>
+        </form>
+      </div>
+
+      <div id="bp-chart-wrap" class="${C.card}">
+        <h3 class="${C.h3} mb-3">Trend</h3>
+        <div id="bp-chart-inner"></div>
+      </div>
+
+      <div class="${C.card}">
+        <h3 class="${C.h3} mb-3">History</h3>
+        <div id="bp-table-wrap"></div>
+      </div>
+    </div>`;
+
+  const updateSubmitState = () => {
+    const sys = document.getElementById('bp-systolic').value;
+    const dia = document.getElementById('bp-diastolic').value;
+    const pul = document.getElementById('bp-pulse').value;
+    const btn = document.getElementById('bp-submit');
+    const filled = sys && dia && pul;
+    btn.disabled = !filled;
+    btn.classList.toggle('opacity-50', !filled);
+    btn.classList.toggle('cursor-not-allowed', !filled);
+  };
+  ['bp-systolic','bp-diastolic','bp-pulse'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateSubmitState)
+  );
+
+  await loadBpData();
+
+  document.getElementById('bp-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    clearError('bp-error');
+    const systolic  = parseInt(document.getElementById('bp-systolic').value, 10);
+    const diastolic = parseInt(document.getElementById('bp-diastolic').value, 10);
+    const pulse     = parseInt(document.getElementById('bp-pulse').value, 10);
+    const notes     = document.getElementById('bp-notes').value.trim() || null;
+    const dtVal     = document.getElementById('bp-datetime').value;
+    const recordedAt = dtVal ? new Date(dtVal).toISOString() : undefined;
+
+    const r = await Bridge.call('addBpEntry', { systolic, diastolic, pulse, notes, recordedAt });
+    if (!r.ok) {
+      showError('bp-error', r.data?.detail || r.data || 'Failed to save reading.');
+      return;
+    }
+    document.getElementById('bp-systolic').value  = '';
+    document.getElementById('bp-diastolic').value = '';
+    document.getElementById('bp-pulse').value     = '';
+    document.getElementById('bp-notes').value     = '';
+    updateSubmitState();
+    await loadBpData();
+  });
+}
+
+async function loadBpData() {
+  const r = await Bridge.call('getBpEntries');
+  if (!r.ok) {
+    const wrap = document.getElementById('bp-table-wrap');
+    if (wrap) wrap.innerHTML = `<p class="${C.mutedText} text-[var(--color-feedback-error)]">Failed to load readings.</p>`;
+    return;
+  }
+  const entries = r.data;
+  renderBpChart(entries);
+  renderBpTable(entries);
+}
+
+function renderBpChart(entries) {
+  const wrap = document.getElementById('bp-chart-inner');
+  if (!wrap) return;
+
+  if (!entries.length) {
+    wrap.innerHTML = `<p class="${C.mutedText} text-center py-6">No readings yet. Log your first reading above.</p>`;
+    return;
+  }
+
+  const slice   = entries.slice(0, 14).reverse();
+  const labels  = slice.map(e => fmtDateTime(e.recordedAt));
+  const systolics  = slice.map(e => e.systolic);
+  const diastolics = slice.map(e => e.diastolic);
+
+  wrap.innerHTML = '<canvas id="bp-chart" height="100"></canvas>';
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+
+  const isDark     = document.documentElement.classList.contains('dark');
+  const gridColor  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tickColor  = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim();
+  const accent     = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+  const accentHover= getComputedStyle(document.documentElement).getPropertyValue('--color-accent-hover').trim();
+
+  activeChart = new Chart(document.getElementById('bp-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Systolic',
+          data: systolics,
+          borderColor: accent,
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          pointRadius: 3,
+        },
+        {
+          label: 'Diastolic',
+          data: diastolics,
+          borderColor: accentHover,
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          pointRadius: 3,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { color: tickColor } }
+      },
+      scales: {
+        x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor, lineWidth: 0.5 } },
+        y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor, lineWidth: 0.5 },
+             title: { display: true, text: 'mmHg', color: tickColor } }
+      },
+      backgroundColor: 'transparent'
+    }
+  });
+}
+
+function renderBpTable(entries) {
+  const wrap = document.getElementById('bp-table-wrap');
+  if (!wrap) return;
+
+  if (!entries.length) {
+    wrap.innerHTML = `<p class="${C.mutedText}">No blood pressure readings yet. Log your first reading above.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" aria-label="Blood pressure history">
+        <thead>
+          <tr class="${C.divider} text-left">
+            <th class="py-2 pr-4 ${C.tinyText} font-medium">Date/Time</th>
+            <th class="py-2 pr-4 ${C.tinyText} font-medium">Sys/Dia</th>
+            <th class="py-2 pr-4 ${C.tinyText} font-medium">Pulse</th>
+            <th class="py-2 flex-1 ${C.tinyText} font-medium">Notes</th>
+            <th class="py-2"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map(bpRow).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function bpRow(e) {
+  const notes = e.notes ? escHtml(e.notes.length > 40 ? e.notes.slice(0, 40) + '…' : e.notes) : '';
+  return `
+    <tr class="${C.trow}">
+      <td class="py-2 pr-4 text-[var(--color-text-secondary)]">${fmtDateTime(e.recordedAt)}</td>
+      <td class="py-2 pr-4 font-semibold text-[var(--color-text-primary)]">${e.systolic}/${e.diastolic} <span class="${C.tinyText}">mmHg</span></td>
+      <td class="py-2 pr-4 text-[var(--color-text-secondary)]">${e.pulse} <span class="${C.tinyText}">bpm</span></td>
+      <td class="py-2 flex-1 text-[var(--color-text-disabled)]">${notes}</td>
+      <td class="py-2">
+        <button onclick="deleteBpEntry(${e.id})"
+                aria-label="Delete reading from ${fmtDateTime(e.recordedAt)}"
+                class="text-[var(--color-feedback-error)] hover:opacity-75 text-xs font-medium transition-opacity">
+          Delete
+        </button>
+      </td>
+    </tr>`;
+}
+
+async function deleteBpEntry(id) {
+  const r = await Bridge.call('deleteBpEntry', { id });
+  if (!r.ok) { alert('Failed to delete reading.'); return; }
+  await loadBpData();
+}
+
 async function loadWeightTable() {
   const wrap = document.getElementById('weight-table-wrap');
   if (!wrap) return;
