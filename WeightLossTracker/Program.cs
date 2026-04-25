@@ -388,6 +388,12 @@ app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
         }
     }
 
+    var latestBp = await db.BloodPressureEntries
+        .Where(b => b.UserProfileId == profileId)
+        .OrderByDescending(b => b.RecordedAt)
+        .Select(b => new { b.Systolic, b.Diastolic, b.Pulse, b.RecordedAt })
+        .FirstOrDefaultAsync();
+
     return Results.Ok(new
     {
         currentWeight,
@@ -397,7 +403,8 @@ app.MapGet("/api/dashboard", async (AppDbContext db, HttpContext ctx) =>
         daysLogged,
         progressPct,
         goalWeight = target,
-        chart = new { labels, weights, trendLine }
+        chart = new { labels, weights, trendLine },
+        latestBp
     });
 }).RequireAuthorization();
 
@@ -462,6 +469,61 @@ app.MapDelete("/api/weight/{id:int}", async (AppDbContext db, HttpContext ctx, i
     db.WeightEntries.Remove(entry);
     await db.SaveChangesAsync();
     return Results.Ok();
+}).RequireAuthorization();
+
+// ─── BLOOD PRESSURE ───────────────────────────────────────────────────────────
+app.MapGet("/api/bp", async (AppDbContext db, HttpContext ctx) =>
+{
+    var profileId = GetProfileId(ctx);
+    return Results.Ok(await db.BloodPressureEntries
+        .Where(b => b.UserProfileId == profileId)
+        .OrderByDescending(b => b.RecordedAt)
+        .Select(b => new {
+            b.Id,
+            b.Systolic,
+            b.Diastolic,
+            b.Pulse,
+            b.Notes,
+            b.RecordedAt
+        })
+        .ToListAsync());
+}).RequireAuthorization();
+
+app.MapPost("/api/bp", async (AppDbContext db, HttpContext ctx, BpEntryRequest req) =>
+{
+    if (req.Systolic < 60 || req.Systolic > 250)
+        return Results.BadRequest("Systolic must be between 60 and 250 mmHg.");
+    if (req.Diastolic < 40 || req.Diastolic > 150)
+        return Results.BadRequest("Diastolic must be between 40 and 150 mmHg.");
+    if (req.Pulse < 30 || req.Pulse > 200)
+        return Results.BadRequest("Pulse must be between 30 and 200 bpm.");
+
+    var profileId = GetProfileId(ctx);
+    var entry = new BloodPressureEntry
+    {
+        UserProfileId = profileId,
+        Systolic      = req.Systolic,
+        Diastolic     = req.Diastolic,
+        Pulse         = req.Pulse,
+        Notes         = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim(),
+        RecordedAt    = req.RecordedAt ?? DateTime.UtcNow
+    };
+    db.BloodPressureEntries.Add(entry);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/bp/{entry.Id}", new {
+        entry.Id, entry.Systolic, entry.Diastolic, entry.Pulse, entry.Notes, entry.RecordedAt
+    });
+}).RequireAuthorization();
+
+app.MapDelete("/api/bp/{id:int}", async (AppDbContext db, HttpContext ctx, int id) =>
+{
+    var profileId = GetProfileId(ctx);
+    var entry = await db.BloodPressureEntries
+        .FirstOrDefaultAsync(b => b.Id == id && b.UserProfileId == profileId);
+    if (entry is null) return Results.NotFound();
+    db.BloodPressureEntries.Remove(entry);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
 }).RequireAuthorization();
 
 // ─── SCHEDULE ─────────────────────────────────────────────────────────────────
@@ -665,3 +727,4 @@ record LoginRequest(string Username, string Password)
     public override string ToString() =>
         $"LoginRequest {{ Username = {Username}, Password = [REDACTED] }}";
 }
+record BpEntryRequest(int Systolic, int Diastolic, int Pulse, string? Notes, DateTime? RecordedAt);

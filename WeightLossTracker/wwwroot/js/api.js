@@ -31,6 +31,10 @@ const Bridge = (() => {
       // AI history
       getAiHistory:         { method: 'GET',    url: '/api/ai-history' },
       deleteAiHistory:      { method: 'DELETE', url: '/api/ai-history/{id}' },
+      // Blood Pressure
+      getBpEntries:         { method: 'GET',    url: '/api/bp' },
+      addBpEntry:           { method: 'POST',   url: '/api/bp' },
+      deleteBpEntry:        { method: 'DELETE', url: '/api/bp/{id}' },
     };
 
     const route = routes[action];
