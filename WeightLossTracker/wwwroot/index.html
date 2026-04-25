@@ -170,6 +170,17 @@
     .prose h3 { font-weight: 600; margin-top: 0.75rem; }
     .prose li { margin-bottom: 0.25rem; }
     .prose p  { margin-bottom: 0.5rem; }
+
+    /* ─── Logo theme switching ─────────────────────────────────────────────── */
+    .logo-dark { display: none; }
+    @media (prefers-color-scheme: dark) {
+      .logo-light { display: none; }
+      .logo-dark  { display: inline; }
+    }
+    [data-theme="light"] .logo-light { display: inline; }
+    [data-theme="light"] .logo-dark  { display: none;   }
+    [data-theme="dark"]  .logo-light { display: none;   }
+    [data-theme="dark"]  .logo-dark  { display: inline; }
   </style>
 </head>
 <body class="h-full bg-[var(--color-surface-primary)] flex flex-col md:flex-row transition-colors duration-200">
