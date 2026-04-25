@@ -90,6 +90,17 @@ CSS rules in the `<style>` block handle visibility:
 
 Both SVGs carry `aria-hidden="true"` since the surrounding text already labels the icon.
 
+## PNG Representations
+
+256×256 PNG exports are stored alongside this spec:
+
+| File | Description |
+|---|---|
+| [`logo-light-256.png`](logo-light-256.png) | Light mode — transparent background, green figure |
+| [`logo-dark-256.png`](logo-dark-256.png) | Dark mode — `#0F172A` background, teal figure |
+
+These are for reference and documentation only. The production logo is always rendered as inline SVG.
+
 ## Out of Scope
 
 - Animated version (loading spinner, intro splash)
