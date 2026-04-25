@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace WeightLossTracker.Models;
 
 public class UserProfile
@@ -83,4 +85,6 @@ public class BloodPressureEntry
     public int Pulse { get; set; }
     public string? Notes { get; set; }
     public DateTime RecordedAt { get; set; }
+    [MaxLength(20)]
+    public string? Category { get; set; }
 }
