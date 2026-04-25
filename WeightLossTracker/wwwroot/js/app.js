@@ -247,7 +247,7 @@ function navigate(viewName) {
 
   const views = {
     dashboard: renderDashboard,
-    weight:    renderWeight,
+    vitals:    renderVitals,
     exercise:  renderExercise,
     meals:     renderMeals,
     history:   renderHistory,
@@ -415,12 +415,42 @@ function kpiCard(label, value, colorClass, icon) {
     </div>`;
 }
 
-// ─── WEIGHT LOG ───────────────────────────────────────────────────────────────
-async function renderWeight() {
+// ─── VITALS (tab router) ──────────────────────────────────────────────────────
+async function renderVitals(activeTab = 'weight') {
   const root = document.getElementById('view-root');
   root.innerHTML = `
     <div class="space-y-6">
-      <h1 class="${C.h1}">Weight log</h1>
+      <h1 class="${C.h1}">Vitals</h1>
+      <div class="flex border-b border-[var(--color-border-subtle)]">
+        <button onclick="renderVitals('weight')"
+                class="px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'weight'
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}">
+          Weight
+        </button>
+        <button onclick="renderVitals('bp')"
+                class="px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'bp'
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}">
+          Blood Pressure
+        </button>
+      </div>
+      <div id="vitals-content"></div>
+    </div>`;
+
+  const content = document.getElementById('vitals-content');
+  if (activeTab === 'bp') {
+    await renderBloodPressureContent(content);
+  } else {
+    await renderWeightContent(content);
+  }
+}
+
+// ─── WEIGHT LOG ───────────────────────────────────────────────────────────────
+async function renderWeightContent(container) {
+  container.innerHTML = `
+    <div class="space-y-4">
+      <h2 class="${C.h2}">Weight log</h2>
 
       <div class="${C.card}">
         <h2 class="${C.h2}">Log today's weight</h2>
