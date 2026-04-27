@@ -690,6 +690,7 @@ function renderWeightChart(entries) {
   if (!wrap) return;
 
   if (!entries.length) {
+    if (activeChart) { activeChart.destroy(); activeChart = null; }
     wrap.innerHTML = `<p class="${C.mutedText} text-center py-6">No entries yet. Log your first weight above.</p>`;
     return;
   }
@@ -698,8 +699,8 @@ function renderWeightChart(entries) {
   const labels  = slice.map(e => fmtDate(e.date));
   const weights = slice.map(e => e.weight);
 
-  wrap.innerHTML = '<canvas id="weight-chart-tab" height="100"></canvas>';
   if (activeChart) { activeChart.destroy(); activeChart = null; }
+  wrap.innerHTML = '<canvas id="weight-chart-tab" height="100"></canvas>';
 
   const isDark    = document.documentElement.classList.contains('dark');
   const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
@@ -802,8 +803,10 @@ async function deleteBpEntry(id) {
 async function loadWeightData() {
   const r = await Bridge.call('getWeightEntries');
   if (!r.ok) {
-    const wrap = document.getElementById('weight-table-wrap');
-    if (wrap) wrap.innerHTML = `<p class="${C.mutedText} text-[var(--color-feedback-error)]">Failed to load entries.</p>`;
+    const tableWrap = document.getElementById('weight-table-wrap');
+    if (tableWrap) tableWrap.innerHTML = `<p class="${C.mutedText} text-[var(--color-feedback-error)]">Failed to load entries.</p>`;
+    const chartWrap = document.getElementById('weight-chart-inner');
+    if (chartWrap) chartWrap.innerHTML = '';
     return;
   }
   const entries = r.data;
