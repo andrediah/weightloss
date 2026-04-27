@@ -846,7 +846,7 @@ function weightRow(e) {
     <tr id="row-${e.id}" class="${C.trow}">
       <td class="py-2 pr-4 text-[var(--color-text-secondary)]">${fmtDate(e.date)}</td>
       <td class="py-2 pr-4 font-medium text-[var(--color-text-primary)]">${e.weight.toFixed(1)}</td>
-      <td class="py-2 text-[var(--color-text-disabled)]">${escHtml(e.notes || '')}</td>
+      <td class="py-2 text-[var(--color-text-secondary)]">${escHtml(e.notes || '')}</td>
       <td class="py-2">
         <div class="flex gap-3">
           <button onclick="startEditWeight(${e.id}, ${e.weight}, '${escHtml(e.notes||'')}')"
