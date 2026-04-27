@@ -50,4 +50,15 @@ public class UtcDateTimeConverterTests
         Assert.Equal(input, result);
         Assert.Equal(DateTimeKind.Utc, result.Kind);
     }
+
+    [Fact]
+    public void ConvertToProvider_LocalKind_PassesThroughUnchanged()
+    {
+        var converter = new UtcDateTimeConverter();
+        var convertToProvider = (Func<DateTime, DateTime>)
+            converter.ConvertToProviderExpression.Compile();
+        var input = new DateTime(2026, 4, 25, 19, 0, 0, DateTimeKind.Local);
+        var result = convertToProvider(input);
+        Assert.Equal(input.Ticks, result.Ticks);
+    }
 }
