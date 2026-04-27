@@ -457,10 +457,10 @@ async function renderVitals(activeTab = 'weight') {
 async function renderWeightContent(container) {
   container.innerHTML = `
     <div class="space-y-4">
-      <h2 class="${C.h2}">Weight log</h2>
+      <h2 class="${C.h2}">Weight</h2>
 
       <div class="${C.card}">
-        <h2 class="${C.h2}">Log today's weight</h2>
+        <h3 class="${C.h3} mb-3">Log today's weight</h3>
         <div id="weight-error"></div>
         <form id="weight-form" class="flex flex-wrap gap-3 items-end" novalidate>
           <div>
@@ -468,7 +468,7 @@ async function renderWeightContent(container) {
             <input id="wt-weight" type="number" step="0.1" min="50" max="500" required
                    aria-describedby="wt-weight-hint"
                    class="${C.input} w-32" placeholder="e.g. 212.5">
-            <p id="wt-weight-hint" class="text-xs text-gray-400 dark:text-gray-500 mt-1">50–500 lbs</p>
+            <p id="wt-weight-hint" class="text-xs text-[var(--color-text-disabled)] mt-1">50–500 lbs</p>
           </div>
           <div class="flex-1 min-w-48">
             <label for="wt-notes" class="${C.label}">Notes (optional)</label>
@@ -480,12 +480,17 @@ async function renderWeightContent(container) {
       </div>
 
       <div class="${C.card}">
-        <h2 class="${C.h2}">History</h2>
+        <h3 class="${C.h3} mb-3">Trend</h3>
+        <div id="weight-chart-inner"></div>
+      </div>
+
+      <div class="${C.card}">
+        <h3 class="${C.h3} mb-3">History</h3>
         <div id="weight-table-wrap"></div>
       </div>
     </div>`;
 
-  await loadWeightTable();
+  await loadWeightData();
 
   document.getElementById('weight-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -503,7 +508,7 @@ async function renderWeightContent(container) {
     if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
     document.getElementById('wt-weight').value = '';
     document.getElementById('wt-notes').value  = '';
-    await loadWeightTable();
+    await loadWeightData();
   });
 }
 
@@ -680,6 +685,56 @@ function renderBpChart(entries) {
   });
 }
 
+function renderWeightChart(entries) {
+  const wrap = document.getElementById('weight-chart-inner');
+  if (!wrap) return;
+
+  if (!entries.length) {
+    if (activeChart) { activeChart.destroy(); activeChart = null; }
+    wrap.innerHTML = `<p class="${C.mutedText} text-center py-6">No entries yet. Log your first weight above.</p>`;
+    return;
+  }
+
+  const slice   = entries.slice(0, 14).reverse();
+  const labels  = slice.map(e => fmtDate(e.date));
+  const weights = slice.map(e => e.weight);
+
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  wrap.innerHTML = '<canvas id="weight-chart-tab" height="100"></canvas>';
+
+  const isDark    = document.documentElement.classList.contains('dark');
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tickColor = getComputedStyle(document.documentElement).getPropertyValue('--color-text-secondary').trim();
+  const accent    = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+
+  activeChart = new Chart(document.getElementById('weight-chart-tab').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Weight (lbs)',
+        data: weights,
+        borderColor: accent,
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor, lineWidth: 0.5 } },
+        y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor, lineWidth: 0.5 },
+             title: { display: true, text: 'lbs', color: tickColor } }
+      },
+      backgroundColor: 'transparent'
+    }
+  });
+}
+
 function renderBpTable(entries) {
   const wrap = document.getElementById('bp-table-wrap');
   if (!wrap) return;
@@ -745,15 +800,24 @@ async function deleteBpEntry(id) {
   await loadBpData();
 }
 
-async function loadWeightTable() {
-  const wrap = document.getElementById('weight-table-wrap');
-  if (!wrap) return;
+async function loadWeightData() {
   const r = await Bridge.call('getWeightEntries');
   if (!r.ok) {
-    wrap.innerHTML = `<p class="text-red-500 dark:text-red-400 text-sm">Failed to load entries.</p>`;
+    const tableWrap = document.getElementById('weight-table-wrap');
+    if (tableWrap) tableWrap.innerHTML = `<p class="${C.mutedText} text-[var(--color-feedback-error)]">Failed to load entries.</p>`;
+    const chartWrap = document.getElementById('weight-chart-inner');
+    if (chartWrap) chartWrap.innerHTML = '';
     return;
   }
   const entries = r.data;
+  renderWeightChart(entries);
+  renderWeightTable(entries);
+}
+
+function renderWeightTable(entries) {
+  const wrap = document.getElementById('weight-table-wrap');
+  if (!wrap) return;
+
   if (!entries.length) {
     wrap.innerHTML = `<p class="${C.mutedText}">No entries yet. Log your first weight above.</p>`;
     return;
@@ -764,12 +828,10 @@ async function loadWeightTable() {
       <table class="w-full text-sm" aria-label="Weight history">
         <thead>
           <tr class="${C.divider} text-left">
-            <th class="py-2 pr-4 text-gray-500 dark:text-gray-400 font-medium">Date</th>
-            <th class="py-2 pr-4 text-gray-500 dark:text-gray-400 font-medium">Weight</th>
-            <th class="py-2 flex-1 text-gray-500 dark:text-gray-400 font-medium">Notes</th>
-            <th class="py-2 text-gray-500 dark:text-gray-400 font-medium">
-              <span class="sr-only">Actions</span>
-            </th>
+            <th class="py-2 pr-4 ${C.tinyText} font-medium">Date</th>
+            <th class="py-2 pr-4 ${C.tinyText} font-medium">Weight</th>
+            <th class="py-2 flex-1 ${C.tinyText} font-medium">Notes</th>
+            <th class="py-2"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody id="weight-tbody">
@@ -782,9 +844,9 @@ async function loadWeightTable() {
 function weightRow(e) {
   return `
     <tr id="row-${e.id}" class="${C.trow}">
-      <td class="py-2 pr-4 text-gray-600 dark:text-gray-300">${fmtDate(e.date)}</td>
-      <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">${e.weight.toFixed(1)}</td>
-      <td class="py-2 text-gray-500 dark:text-gray-400">${escHtml(e.notes || '')}</td>
+      <td class="py-2 pr-4 text-[var(--color-text-secondary)]">${fmtDate(e.date)}</td>
+      <td class="py-2 pr-4 font-medium text-[var(--color-text-primary)]">${e.weight.toFixed(1)}</td>
+      <td class="py-2 text-[var(--color-text-secondary)]">${escHtml(e.notes || '')}</td>
       <td class="py-2">
         <div class="flex gap-3">
           <button onclick="startEditWeight(${e.id}, ${e.weight}, '${escHtml(e.notes||'')}')"
@@ -831,7 +893,7 @@ function startEditWeight(id, weight, notes) {
 
 function cancelEditWeight(id) {
   editingWeightId = null;
-  loadWeightTable();
+  loadWeightData();
 }
 
 async function saveEditWeight(id) {
@@ -841,14 +903,14 @@ async function saveEditWeight(id) {
   const r = await Bridge.call('updateWeight', { id, weight, notes });
   if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
   editingWeightId = null;
-  await loadWeightTable();
+  await loadWeightData();
 }
 
 async function deleteWeight(id) {
   if (!confirm('Delete this weight entry? This cannot be undone.')) return;
   const r = await Bridge.call('deleteWeight', { id });
   if (!r.ok) { showError('weight-error', r.data?.detail || r.data); return; }
-  await loadWeightTable();
+  await loadWeightData();
 }
 
 // ─── EXERCISE SCHEDULE ────────────────────────────────────────────────────────
